@@ -1,0 +1,16 @@
+<Configuration monitorInterval="5">
+  <Appenders>
+      <Console name="Out">
+        <PatternLayout pattern="[%level] %c{1}  %m%n%ex"/>
+      </Console>
+  </Appenders>
+
+  <Loggers>
+    <Logger name="fs2.osm" level="info" additivity="false">
+      <AppenderRef ref="Out"/>
+    </Logger>
+    <Root level="info">
+      <AppenderRef ref="Out"/>
+    </Root>
+  </Loggers>
+</Configuration>
