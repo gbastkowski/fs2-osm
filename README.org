@@ -1,0 +1,4 @@
+#+title: Readme
+
+* FS2-OSM
+An OpenStreetMap PBF file parser in Scala based on [[https://typelevel.org/cats-effect/][cats-effect]] and [[https://fs2.io/#/][fs2]].
