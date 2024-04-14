@@ -1,8 +1,11 @@
 package fs2.osm
+package integrationtest
 
 import cats.effect.*
 import fs2.*
 import fs2.io.readInputStream
+import fs2.osm.core.*
+import postgres.*
 import sttp.client3.UriContext
 import sttp.model.Uri
 import weaver.*
@@ -12,11 +15,12 @@ object GeofabrikIntegrationTest extends SimpleIOSuite {
   private val offline = readInputStream(IO(getClass.getResourceAsStream("/bremen-20240402.osm.pbf")), 1024, closeAfterUse = true)
 
   test("download Bremen data from web") {
-    val exporter = PostgresExporter[IO]("fs2-osm", "gunnar.bastkowski", "")
     val entities = OsmEntityDecoder.pipe[IO](online)
 
-    for count <- exporter.run(entities)
-    yield expect(true)
+    for {
+      exporter <- PostgresExporter[IO]
+      count    <- exporter.run(entities)
+    } yield expect(true)
   }
 
   test("has nodes and ways") {

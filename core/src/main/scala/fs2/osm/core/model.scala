@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import java.time.Instant
 import org.openstreetmap.osmosis.osmbinary.osmformat

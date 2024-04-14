@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.syntax.all.*
 import fs2.{Chunk, Stream}
@@ -6,10 +7,7 @@ import org.openstreetmap.osmosis.osmbinary.osmformat.{StringTable, DenseInfo, De
 import java.time.Instant
 import fs2.Pure
 
-class DenseNodeStream[F[_]](stringTable: StringTable, latOffset: Long = 0, lonOffset: Long = 0, granularity: Int = 100) {
-  def nodeIds(denseNodes: DenseNodes): Stream[F, Long] =
-    streamIds(denseNodes.id)
-
+private[core] class DenseNodeStream[F[_]](stringTable: StringTable, latOffset: Long = 0, lonOffset: Long = 0, granularity: Int = 100) {
   def nodes(denseNodes: DenseNodes): Stream[F, Node] =
     streamIds(denseNodes.id)
       .zip(streamCoordinates(denseNodes.lon zip denseNodes.lat))
@@ -51,7 +49,7 @@ class DenseNodeStream[F[_]](stringTable: StringTable, latOffset: Long = 0, lonOf
 
     (versions zip timestamps zip changesets zip uids zip userSids zip visibles).map {
       case (((((version, timestamp), changeset), uid), userSid), visible) =>
-        fs2.osm.Info(
+        Info(
           version,
           timestamp.map { Instant.ofEpochSecond },
           changeset,

@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -29,20 +30,4 @@ object BlobSpec extends SimpleIOSuite {
       groups.head.dense.size == 1,
     )
   }
-
-  // test("write file") {
-  //   val bytes = PbfReader
-  //     .stream(Files[IO].readAll(Path("/Users/gunnar.bastkowski/Downloads/bremen-latest.osm.pbf")))
-  //     .filter(_._1.`type` == "OSMData")
-  //     .take(1)
-  //     .map(_._2)
-  //     .map(_.zlibData.get.toByteArray)
-  //     .flatMap(byteArray => Stream.emits(byteArray.toSeq))
-
-  //   for {
-  //     list <- bytes.compile.toList
-  //     count = list.size
-  //     written <- bytes.through(Files[IO].writeAll(Path("data.blob"))).compile.count
-  //   } yield expect(count == 74870)
-  // }
 }

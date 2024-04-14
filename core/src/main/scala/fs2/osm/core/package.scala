@@ -1,4 +1,4 @@
-package fs2
+package fs2.osm
 
 import com.google.protobuf.ByteString
 import java.io.{ByteArrayInputStream, DataInputStream}
@@ -8,7 +8,7 @@ import org.openstreetmap.osmosis.osmbinary.fileformat.{Blob, BlobHeader}
 import org.openstreetmap.osmosis.osmbinary.osmformat.{PrimitiveBlock, StringTable}
 import scala.util.Try
 
-package object osm {
+package object core {
 
   extension (stringTable: StringTable) {
     def getString(index: Int): String = stringTable.s(index).toString(`UTF-8`)
@@ -21,7 +21,7 @@ package object osm {
     def tags(keyValueSequence: Iterator[Int]): Map[String, String] =
       keyValueSequence
         .grouped(2)
-        .map { tag => getString(tag.head) -> getString(tag.last) }
+        .map { case Seq(head, last) => getString(head) -> getString(last) }
         .toMap
   }
 

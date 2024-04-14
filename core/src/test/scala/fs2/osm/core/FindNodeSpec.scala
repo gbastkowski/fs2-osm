@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -15,13 +16,11 @@ object FindNodeSpec extends SimpleIOSuite {
 
   test("download Bremen data from web") {
     val stream = for
-      (header, blob) <- PbfReader.stream(offline)
+      (header, blob) <- PbfReader.pipe(offline)
       primitiveBlock <- Stream.fromEither(Either.fromTry(blob.toPrimitiveBlock))
       stringTable     = primitiveBlock.stringtable
       primitiveGroup <- Stream.emits(primitiveBlock.primitivegroup).filter { _.dense.nonEmpty }
       dense           = primitiveGroup.dense.get
-      // _ = println(dense.id.head)
-      // dense          <- DenseNodeStream(stringTable).nodeIds(primitiveGroup.dense.get)
     yield dense
 
     def delta(xs: Seq[Long]) = xs.tail.scan(xs.head) { _ + _ }

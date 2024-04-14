@@ -1,9 +1,11 @@
 package fs2.osm
+package postgres
 
-import cats.{Foldable, Monoid}
+import cats.*
 import cats.effect.*
 import cats.free.Free
 import cats.syntax.all.*
+import core.*
 import doobie.*
 import doobie.free.connection.ConnectionOp
 import doobie.implicits.*
@@ -19,12 +21,21 @@ import io.circe.*
 import io.circe.syntax.*
 import org.apache.logging.log4j.scala.Logging
 import org.postgis.Point
+import pureconfig.*
+import pureconfig.generic.derivation.default.*
+import pureconfig.module.catseffect.syntax.*
 
 object PostgresExporter {
+  def apply[F[_]: Async]: F[PostgresExporter[F]] =
+    for config <- ConfigSource.default.loadF[F, Config]()
+    yield new PostgresExporter[F](config)
+
+  case class Config(jdbcUrl: String, username: String, password: String) derives ConfigReader
+
   case class Summary(nodes: Int = 0, ways: Int = 0, relations: Int = 0) {
-    def addNodes(n: Int)      = copy(nodes = nodes + n)
-    def addRelations(n: Int)  = copy(relations = relations + n)
-    def addWays(n: Int)       = copy(ways = ways + n)
+    def addNodes(n: Int)      = copy(nodes      = nodes     + n)
+    def addRelations(n: Int)  = copy(relations  = relations + n)
+    def addWays(n: Int)       = copy(ways       = ways      + n)
   }
 
   given Monoid[Summary] with
@@ -32,41 +43,36 @@ object PostgresExporter {
     def combine(x: Summary, y: Summary): Summary = Summary(x.nodes + y.nodes, x.ways + y.ways, x.relations + y.relations)
 }
 
-class PostgresExporter[F[_]: Async](db: String, user: String, password: String) extends Logging {
-  import PostgresExporter.*
+class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Logging {
+  import PostgresExporter.*, config.*
 
   def run(entities: Stream[F, OsmEntity]): F[PostgresExporter.Summary] = {
-    // val schema: F[Unit] = createSchema(db)
-    // val relations: Stream[F, Chunk[Relation]] = entities.collect { case n: Relation => n }.chunkLimit(10000)
-    // val handle = relations.map { handleRelations }
-    // val transacted: Stream[F, Int] = handle.flatMap { op => Stream.eval(op.transact(xa)) }
-    // val sum = transacted.fold1 { _ + _ }
     for {
-      _      <- createSchema(db)
+      _      <- createSchema
       count  <- entities
-                  .map { handle(Summary()) }
+                  .map      { handle(Summary()) }
                   .chunkN(10000, allowFewer = true)
-                  .flatMap { chunk => Stream.eval(chunk.combineAll.transact(xa)) }
+                  .flatMap  { chunk => Stream.eval(chunk.combineAll.transact(xa)) }
                   .debug(n => s"inserted $n entities", logger.debug(_) )
-                  .fold(Summary()) { _ combine _ }
+                  .foldMonoid
                   .compile
                   .toList
-                  .map { _.head }
+                  .map      { _.head }
     } yield count
   }
 
   private lazy val xa = Transactor.fromDriverManager[F](
     driver      = "org.postgresql.Driver",
-    url         = s"jdbc:postgresql:$db",
-    user        = user,
+    url         = jdbcUrl,
+    user        = username,
     password    = password,
     logHandler  = None
   )
 
   private def handle(s: Summary)(e: OsmEntity): Free[ConnectionOp, Summary] = e match {
-    case n: Node     => handleNode(n).map { s.addNodes }
-    case r: Relation => handleRelation(r).map { s.addRelations }
-    case w: Way      => handleWay(w).map { s.addWays }
+    case n: Node     => handleNode(n).map     { s.addNodes      }
+    case r: Relation => handleRelation(r).map { s.addRelations  }
+    case w: Way      => handleWay(w).map      { s.addWays       }
   }
 
   private def handleNode(n: Node) = {
@@ -152,7 +158,7 @@ class PostgresExporter[F[_]: Async](db: String, user: String, password: String) 
   //   Update(sql.update.sql)
   //     .updateMany[Chunk](xs.map(Tuple.fromProductTyped))
 
-  private def createSchema(db: String) =
+  private val createSchema =
     List(
       sql"""DROP TABLE IF EXISTS importer_properties CASCADE""",
       sql"""DROP TABLE IF EXISTS nodes               CASCADE""",

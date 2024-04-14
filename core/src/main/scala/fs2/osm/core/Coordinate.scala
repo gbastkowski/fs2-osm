@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 case class Coordinate(longitude: Double, latitude: Double) {
 

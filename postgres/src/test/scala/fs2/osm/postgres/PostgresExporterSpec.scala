@@ -1,15 +1,19 @@
 package fs2.osm
+package postgres
 
 import cats.effect.*
 import fs2.*
+import fs2.osm.core.*
 import weaver.*
 import weaver.scalacheck.*
 import org.scalacheck.Gen
 
-object PostgresExporterSpec extends SimpleIOSuite with Checkers {
-  private val exporter = PostgresExporter[IO]("fs2-osm", "gunnar.bastkowski", "")
+object PostgresExporterSpec extends IOSuite with Checkers {
 
-  test("insert entities") {
+  override type Res = PostgresExporter[IO]
+  override def sharedResource: Resource[IO, Res] = Resource.eval(PostgresExporter[IO])
+
+  test("insert entities") { exporter =>
     val entities = Stream(
       Node(
         osmId = 1,
@@ -62,7 +66,7 @@ object PostgresExporterSpec extends SimpleIOSuite with Checkers {
     yield expect(summary.relations > 0)
   }
 
-  test("fail on ways with non-existing nodes") {
+  test("fail on ways with non-existing nodes") { exporter =>
     for summary <- exporter.run(Stream(Way(osmId = 1, nodes = Seq(123), tags = Map("test" -> "value")))).attempt
     yield expect(summary.isLeft)
   }

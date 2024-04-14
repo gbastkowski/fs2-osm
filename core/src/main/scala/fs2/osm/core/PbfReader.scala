@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -6,11 +7,8 @@ import fs2.{Chunk, Pull, Stream}
 import org.apache.logging.log4j.scala.Logging
 import org.openstreetmap.osmosis.osmbinary.fileformat.*
 
-object PbfReader extends Logging {
-  def fromChunks[F[_]](chunks: Stream[F, Chunk[Byte]]): Stream[F, (BlobHeader, Blob)] =
-    stream(chunks.unchunks)
-
-  def stream[F[_]](bytes: Stream[F, Byte]): Stream[F, (BlobHeader, Blob)] =
+private[core] object PbfReader extends Logging {
+  def pipe[F[_]](bytes: Stream[F, Byte]): Stream[F, (BlobHeader, Blob)] =
     bytes
       .repeatPull { pull =>
         pull.unconsN(4, allowFewer = true).flatMap {

@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -10,19 +11,14 @@ import sttp.capabilities.fs2.Fs2Streams
 import sttp.client3.*
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
 import sttp.model.Uri
-
+import sttp.capabilities.Streams
 
 object Downloader {
   def apply[F[_]: Async](uri: Uri): Stream[F, Byte] =
-    // for {
-    //     path   <- Stream.eval(toFile(uri))
-    //     stream <- PbfReader.stream(Files[F].readAll(path))
-    // } yield stream
     for {
       backend  <- Stream.resource(HttpClientFs2Backend.resource())
       response <- Stream.eval(createRequest(uri).send(backend))
-      nested   <- handleError(response)
-      bytes    <- nested
+      bytes    <- Stream.eval(handleError(response)).flatten
     } yield bytes
 
   private def createRequest[F[_]](uri: Uri) =
@@ -31,19 +27,23 @@ object Downloader {
       .response(asStreamUnsafe(Fs2Streams[F]))
       .readTimeout(Duration.Inf)
 
-  private def handleError[F[_]: Async, T](response: Response[Either[String, T]]) =
-    Stream.fromEither(response.body.leftMap { new RuntimeException(_) })
+  def toFile[F[_]: Async: Files](uri: Uri): F[Path] =
+    HttpClientFs2Backend.resource().use { backend =>
+      for {
+        response <- basicRequest
+                      .get(uri)
+                      .response(asStream(Fs2Streams[F]) { writeTempFile })
+                      .readTimeout(Duration.Inf)
+                      .send(backend)
+        path     <- handleError(response)
+      } yield path
+    }
 
-  def toFile[F[_]: Async: Files](uri: Uri) = {
-    val effect = HttpClientFs2Backend.resource().use { backend =>
-      basicRequest
-        .get(uri)
-        .response(asStream(Fs2Streams[F]) { writeTempFile })
-        .readTimeout(Duration.Inf)
-        .send(backend)
-    }.flatMap { response => Async[F].fromEither(response.body.leftMap { message => new RuntimeException(message) })  }
-    effect
-  }
+  private def handleError[F[_]: Async, T](response: Response[Either[String, T]]): F[T] =
+    response
+      .body
+      .leftMap { new RuntimeException(_) }
+      .liftTo[F]
 
   private def writeTempFile[F[_]: Async: Files](bytes: Stream[F, Byte]) =
     for {

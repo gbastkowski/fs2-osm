@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -14,14 +15,14 @@ object PbfReaderSpec extends SimpleIOSuite {
   }
 
   test("correct number of blobs is available") {
-    for   count <- PbfReader.stream(bremen).compile.count
+    for   count <- PbfReader.pipe(bremen).compile.count
     yield expect(count == 244)
   }
 
   test("blob and header have correct values") {
     for
-      count  <- PbfReader.stream(bremen).compile.count
-      list   <- PbfReader.stream(bremen).take(3).compile.toList
+      count  <- PbfReader.pipe(bremen).compile.count
+      list   <- PbfReader.pipe(bremen).take(3).compile.toList
     yield expect.all(
       count == 244,
       list(0)._1.`type` == "OSMHeader",

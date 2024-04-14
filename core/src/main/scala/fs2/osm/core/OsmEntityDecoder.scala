@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.ApplicativeError
 import cats.effect.*
@@ -10,7 +11,7 @@ import org.apache.logging.log4j.scala.Logging
 object OsmEntityDecoder extends Logging {
   def pipe[F[_]: Sync](bytes: Stream[F, Byte]): Stream[F, OsmEntity] =
     for {
-      (header, blob) <- PbfReader.stream(bytes)
+      (header, blob) <- bytes through PbfReader.pipe
       primitiveBlock <- Stream.fromEither(Either.fromTry(blob.toPrimitiveBlock))
       stringTable     = primitiveBlock.stringtable
       primitiveGroup <- Stream.emits(primitiveBlock.primitivegroup)

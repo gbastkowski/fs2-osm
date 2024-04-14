@@ -1,4 +1,5 @@
 package fs2.osm
+package core
 
 import cats.syntax.all.*
 import com.google.protobuf.ByteString
