@@ -32,6 +32,15 @@ object PostgresExporter {
       .default
       .at("db")
       .loadF[F, Config]()
+      .map { config =>
+        Transactor.fromDriverManager[F](
+          driver      = "org.postgresql.Driver",
+          url         = config.jdbcUrl,
+          user        = config.username,
+          password    = config.password,
+          logHandler  = None
+        )
+      }
       .map { new PostgresExporter[F](_) }
 
   case class Config(jdbcUrl: String, username: String, password: String) derives ConfigReader
@@ -59,8 +68,8 @@ object PostgresExporter {
       )
 }
 
-class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Logging {
-  import PostgresExporter.*, config.*
+class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
+  import PostgresExporter.*
 
   def run(entities: Stream[F, OsmEntity]): F[PostgresExporter.Summary] = {
     val rawImport = entities
@@ -79,14 +88,6 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
       updated  <- updateWays
     yield summary.copy(updatedWays = updated)
   }
-
-  private lazy val xa = Transactor.fromDriverManager[F](
-    driver      = "org.postgresql.Driver",
-    url         = jdbcUrl,
-    user        = username,
-    password    = password,
-    logHandler  = None
-  )
 
   private def handle(s: Summary)(e: OsmEntity): Free[ConnectionOp, Summary] = e match {
     case n: Node     => handleNode(n).map     { s.addNodes      }
@@ -204,6 +205,8 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
 
   private val createSchema =
     List(
+      sql"""CREATE EXTENSION IF NOT EXISTS postgis""",
+
       sql"""DROP TABLE IF EXISTS importer_properties CASCADE""",
 
       sql"""DROP TABLE IF EXISTS nodes               CASCADE""",

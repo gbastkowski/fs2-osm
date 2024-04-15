@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
   object Versions {
     val doobie            = "1.0.0-RC4"
-    val embeddedPostgres  = "2.0.7"
+    val embeddedPostgres  = "1.0.1"
     val fs2               = "3.9.4"
     val http4s            = "0.23.26"
     val log4cats          = "2.6.0"
@@ -30,7 +30,7 @@ object Dependencies {
     "net.postgis"                     % "postgis-jdbc"            % Versions.postgisJdbc)
 
   val embeddedPostgres = Seq(
-    "io.zonky.test"                   % "embedded-postgres"       % Versions.embeddedPostgres)
+    "com.opentable.components"        % "otj-pg-embedded"         % Versions.embeddedPostgres)
 
   val fs2 = Seq(
     "co.fs2"                         %% "fs2-core"                % Versions.fs2,
@@ -44,6 +44,7 @@ object Dependencies {
   val logging = Seq(
     // "com.github.valskalla"           %% "odin-core"         % Versions.odin,
     "org.apache.logging.log4j"        % "log4j-core"              % Versions.log4j,
+    "org.apache.logging.log4j"        % "log4j-slf4j-impl"        % Versions.log4j,
     "org.apache.logging.log4j"       %% "log4j-api-scala"         % Versions.log4jScala)
 
   val sttp = Seq(

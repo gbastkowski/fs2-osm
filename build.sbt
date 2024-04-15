@@ -1,37 +1,40 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "3.3.1"
+ThisBuild / scalaVersion   := "3.3.1"
+Global / excludeLintKeys   := Set(fork) // remove sbt warning
 
 lazy val core = project
+  .settings(commonSettings)
   .settings(
     libraryDependencies   ++= fs2                                   ++
                               logging                               ++
-                              sttp                                  ++
-                              weaver            .map  { _ % Test }  ,
-    Compile / PB.targets   := Seq(scalapb.gen(grpc = false) -> (Compile / sourceManaged).value),
-    testFrameworks         += new TestFramework("weaver.framework.CatsEffect")
+                              sttp                                  ,
+    Compile / PB.targets   := Seq(scalapb.gen(grpc = false) -> (Compile / sourceManaged).value)
   )
 
 lazy val postgres = project
   .dependsOn(core)
+  .settings(commonSettings)
   .settings(
     libraryDependencies   ++= pureconfig                            ++
                               doobie                                ++
                               fs2                                   ++
-                              logging                               ++
-                              weaver            .map  { _ % Test }  ,
-    run / fork             := true,
-    testFrameworks         += new TestFramework("weaver.framework.CatsEffect")
+                              logging                               ,
+    run / fork             := true
   )
 
 lazy val it = project
   .dependsOn(core, postgres)
+  .settings(commonSettings)
   .settings(
-    libraryDependencies   ++= embeddedPostgres  .map  { _ % Test }  ++
-                              weaver            .map  { _ % Test }  ,
-    test / fork            := true,
-    testFrameworks         += new TestFramework("weaver.framework.CatsEffect")
+    libraryDependencies   ++= embeddedPostgres  .map  { _ % Test }  ,
+    test / fork            := true
   )
 
 lazy val root = project.in(file("."))
   .aggregate(core, it, postgres)
+
+lazy val commonSettings = Seq(
+  libraryDependencies     ++= weaver            .map  { _ % Test }  ,
+  testFrameworks           += new TestFramework("weaver.framework.CatsEffect")
+)

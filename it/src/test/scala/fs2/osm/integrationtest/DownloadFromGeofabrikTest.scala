@@ -2,19 +2,36 @@ package fs2.osm
 package integrationtest
 
 import cats.effect.*
-import fs2.*
+import fs2.Stream
 import fs2.osm.core.*
 import postgres.*
 import sttp.client3.UriContext
 import sttp.model.Uri
 import weaver.*
+import javax.sql.DataSource
+import doobie.util.transactor.Transactor
+import java.sql.Connection
+import com.opentable.db.postgres.embedded.EmbeddedPostgres
+import org.testcontainers.utility.DockerImageName
 
-object DownloadFromGeofabrikTest extends SimpleIOSuite {
-  private val bytes = Downloader[IO](uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf")
+object DownloadFromGeofabrikTest extends IOSuite {
+  override type Res = PostgresExporter[IO]
+  override def sharedResource: Resource[IO, Res] = {
+    val acquire = IO {
+      EmbeddedPostgres
+        .builder()
+        .setImage(DockerImageName.parse("postgis/postgis"))
+        .start()
+        .getPostgresDatabase()
+        .getConnection()
+    }
+    for conn <- Resource.make(acquire) { c => IO(c.close())}
+    yield new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty))
+  }
 
-  test("download Bremen data from web and export to Postgres") {
+  test("download Bremen data from web and export to Postgres") { exporter =>
+    val bytes = Downloader[IO](uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf")
     for
-      exporter <- PostgresExporter[IO]
       summary  <- exporter run (bytes through OsmEntityDecoder.pipe)
     yield expect.all(
       summary.nodes > 10000,
@@ -23,6 +40,7 @@ object DownloadFromGeofabrikTest extends SimpleIOSuite {
   }
 
   test("check some nodes from offline Bremen data") {
+    val bytes = Downloader[IO](uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf")
     val entities = bytes through OsmEntityDecoder.pipe
     for
       sample               <- entities.find { entity =>
