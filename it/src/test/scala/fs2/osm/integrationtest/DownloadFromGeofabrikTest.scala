@@ -2,17 +2,17 @@ package fs2.osm
 package integrationtest
 
 import cats.effect.*
+import com.opentable.db.postgres.embedded.EmbeddedPostgres
+import doobie.util.transactor.Transactor
 import fs2.Stream
 import fs2.osm.core.*
+import java.sql.Connection
+import javax.sql.DataSource
+import org.testcontainers.utility.DockerImageName
 import postgres.*
 import sttp.client3.UriContext
 import sttp.model.Uri
 import weaver.*
-import javax.sql.DataSource
-import doobie.util.transactor.Transactor
-import java.sql.Connection
-import com.opentable.db.postgres.embedded.EmbeddedPostgres
-import org.testcontainers.utility.DockerImageName
 
 object DownloadFromGeofabrikTest extends IOSuite {
   override type Res = PostgresExporter[IO]

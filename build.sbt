@@ -18,6 +18,7 @@ lazy val postgres = project
   .settings(
     libraryDependencies   ++= pureconfig                            ++
                               doobie                                ++
+                              embeddedPostgres  .map  { _ % Test }  ++
                               fs2                                   ++
                               logging                               ,
     run / fork             := true

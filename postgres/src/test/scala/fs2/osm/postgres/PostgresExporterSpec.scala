@@ -2,16 +2,30 @@ package fs2.osm
 package postgres
 
 import cats.effect.*
+import com.opentable.db.postgres.embedded.EmbeddedPostgres
+import doobie.util.transactor.Transactor
 import fs2.*
 import fs2.osm.core.*
+import org.scalacheck.Gen
+import org.testcontainers.utility.DockerImageName
 import weaver.*
 import weaver.scalacheck.*
-import org.scalacheck.Gen
 
 object PostgresExporterSpec extends IOSuite with Checkers {
 
   override type Res = PostgresExporter[IO]
-  override def sharedResource: Resource[IO, Res] = Resource.eval(PostgresExporter[IO])
+  override def sharedResource: Resource[IO, Res] = {
+    val acquire = IO {
+      EmbeddedPostgres
+        .builder()
+        .setImage(DockerImageName.parse("postgis/postgis"))
+        .start()
+        .getPostgresDatabase()
+        .getConnection()
+    }
+    for conn <- Resource.make(acquire) { c => IO(c.close())}
+    yield new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty))
+  }
 
   test("insert entities") { exporter =>
     val entities = Stream(
