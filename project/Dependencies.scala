@@ -2,18 +2,19 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val doobie        = "1.0.0-RC4"
-    val fs2           = "3.9.4"
-    val http4s        = "0.23.26"
-    val log4cats      = "2.6.0"
-    val log4j         = "2.23.1"
-    val log4jScala    = "13.1.0"
-    val odin          = "0.13.0"
-    val postgisJdbc   = "2.5.1"
-    val pureconfig    = "0.17.6"
-    val scalaLogging  = "3.9.4"
-    val sttp          = "3.9.5"
-    val weaver        = "0.8.4"
+    val doobie            = "1.0.0-RC4"
+    val embeddedPostgres  = "2.0.7"
+    val fs2               = "3.9.4"
+    val http4s            = "0.23.26"
+    val log4cats          = "2.6.0"
+    val log4j             = "2.23.1"
+    val log4jScala        = "13.1.0"
+    val odin              = "0.13.0"
+    val postgisJdbc       = "2.5.1"
+    val pureconfig        = "0.17.6"
+    val scalaLogging      = "3.9.4"
+    val sttp              = "3.9.5"
+    val weaver            = "0.8.4"
   }
 
   val pureconfig = Seq(
@@ -27,6 +28,9 @@ object Dependencies {
     "org.tpolecat"                   %% "doobie-postgres"         % Versions.doobie,
     "org.tpolecat"                   %% "doobie-postgres-circe"   % Versions.doobie,
     "net.postgis"                     % "postgis-jdbc"            % Versions.postgisJdbc)
+
+  val embeddedPostgres = Seq(
+    "io.zonky.test"                   % "embedded-postgres"       % Versions.embeddedPostgres)
 
   val fs2 = Seq(
     "co.fs2"                         %% "fs2-core"                % Versions.fs2,

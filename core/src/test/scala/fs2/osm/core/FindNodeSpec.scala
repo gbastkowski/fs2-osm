@@ -12,7 +12,7 @@ import weaver.*
 
 object FindNodeSpec extends SimpleIOSuite {
   private val online  = Downloader[IO](uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf")
-  private val offline = readInputStream(IO(getClass.getResourceAsStream("/bremen-20240402.osm.pbf")), 1024, closeAfterUse = true)
+  private val offline = readInputStream(IO(getClass.getResourceAsStream("/bremen-20240408.osm.pbf")), 1024, closeAfterUse = true)
 
   test("download Bremen data from web") {
     val stream = for

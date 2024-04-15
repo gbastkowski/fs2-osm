@@ -10,7 +10,7 @@ import weaver.*
 
 object PbfReaderSpec extends SimpleIOSuite {
   private val bremen = {
-    val inputStream = IO(getClass.getResourceAsStream("/bremen-20240402.osm.pbf"))
+    val inputStream = IO(getClass.getResourceAsStream("/bremen-20240408.osm.pbf"))
     readInputStream(inputStream, 1024, closeAfterUse = true)
   }
 
@@ -29,9 +29,9 @@ object PbfReaderSpec extends SimpleIOSuite {
       list(0)._1.datasize == 180,
 
       list(1)._1.`type` == "OSMData",
-      list(1)._1.datasize == 74878,
+      list(1)._1.datasize == 74890,
       list(1)._2.raw.isEmpty,
-      list(1)._2.rawSize.get == 126972,
+      list(1)._2.rawSize.get == 126978,
       list(1)._2.zlibData.nonEmpty,
       list(1)._2.toPrimitiveBlock.isSuccess
     )

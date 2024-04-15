@@ -32,7 +32,14 @@ object EntityStreamSpec extends SimpleIOSuite {
 
   pureTest("streams densenodes") {
     val list = EntityStream(
-      osmformat.PrimitiveGroup(dense = osmformat.DenseNodes(id = Seq(42), lat = Seq(1), lon = Seq(2)).some),
+      osmformat.PrimitiveGroup(
+        dense = osmformat.DenseNodes(
+          id = Seq(42),
+          lat = Seq(1),
+          lon = Seq(2),
+          keysVals = Seq(0)
+        ).some
+      ),
       osmformat.StringTable()
     ).compile.toList
 
