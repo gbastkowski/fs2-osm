@@ -17,7 +17,7 @@ object Main extends IOApp {
     for {
       config   <- parseArgs(args)
       entities  = Downloader[IO](config.uri).through(OsmEntityDecoder.pipe[IO])
-      exporter  = new PostgresExporter[IO](config.db)
+      exporter <- PostgresExporter[IO]
       summary  <- exporter.run(entities)
     } yield ExitCode.Success
   }
