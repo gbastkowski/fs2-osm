@@ -24,41 +24,60 @@ import org.postgis.Point
 import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
+import doobie.util.fragment.Fragment
 
 object PostgresExporter {
   def apply[F[_]: Async]: F[PostgresExporter[F]] =
-    for config <- ConfigSource.default.loadF[F, Config]()
-    yield new PostgresExporter[F](config)
+    ConfigSource
+      .default
+      .at("db")
+      .loadF[F, Config]()
+      .map { new PostgresExporter[F](_) }
 
   case class Config(jdbcUrl: String, username: String, password: String) derives ConfigReader
 
-  case class Summary(nodes: Int = 0, ways: Int = 0, relations: Int = 0) {
+  case class Summary(
+    nodes: Int = 0,
+    ways: Int = 0,
+    updatedWays: Int = 0,
+    relations: Int = 0
+  ) {
     def addNodes(n: Int)      = copy(nodes      = nodes     + n)
     def addRelations(n: Int)  = copy(relations  = relations + n)
     def addWays(n: Int)       = copy(ways       = ways      + n)
   }
+  case class SummaryItem(inserted: Int = 0, updated: Int = 0)
 
   given Monoid[Summary] with
     def empty: Summary = Summary()
-    def combine(x: Summary, y: Summary): Summary = Summary(x.nodes + y.nodes, x.ways + y.ways, x.relations + y.relations)
+    def combine(x: Summary, y: Summary): Summary =
+      Summary(
+        x.nodes           + y.nodes,
+        x.ways            + y.ways,
+        x.updatedWays     + y.updatedWays,
+        x.relations       + y.relations
+      )
 }
 
 class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Logging {
   import PostgresExporter.*, config.*
 
   def run(entities: Stream[F, OsmEntity]): F[PostgresExporter.Summary] = {
-    for {
-      _      <- createSchema
-      count  <- entities
-                  .map      { handle(Summary()) }
-                  .chunkN(10000, allowFewer = true)
-                  .flatMap  { chunk => Stream.eval(chunk.combineAll.transact(xa)) }
-                  .debug(n => s"inserted $n entities", logger.debug(_) )
-                  .foldMonoid
-                  .compile
-                  .toList
-                  .map      { _.head }
-    } yield count
+    val rawImport = entities
+      .map      { handle(Summary()) }
+      .chunkN(10000, allowFewer = true)
+      .flatMap  { chunk => Stream.eval(chunk.combineAll.transact(xa)) }
+      .debug(n => s"inserted $n entities", logger.debug(_) )
+      .foldMonoid
+      .compile
+      .toList
+      .map      { _.head }
+
+    for
+      _        <- createSchema
+      summary  <- rawImport
+      updated  <- updateWays
+    yield summary.copy(updatedWays = updated)
   }
 
   private lazy val xa = Transactor.fromDriverManager[F](
@@ -101,14 +120,15 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
 
   private def handleWay(w: Way): Free[ConnectionOp, Int] = {
     val osmId = w.osmId
+    val nodes = w.nodes.toArray
     val tags  = toJson(w.tags)
     val name  = w.tags.get("name")
-    val way       = sql"""INSERT INTO ways       (osm_id, name, tags)    VALUES ($osmId, $name, $tags)""".update
-    val relations = sql"""INSERT INTO ways_nodes (way_id, node_id)       VALUES (?, ?)""".update
+    val way       = sql"""INSERT INTO ways       (osm_id, name, nodes, tags)    VALUES ($osmId, $name, $nodes, $tags)""".update
+    val relations = sql"""INSERT INTO ways_nodes (way_id, node_id)              VALUES (?, ?)""".update
 
     Seq(
       way.run,
-      Update[(Long, Long)](relations.sql).updateMany(w.nodes.map { osmId -> _ })
+      Update[(Long, Long)](relations.sql).updateMany(nodes.toSeq.map { osmId -> _ })
     ).combineAll
   }
 
@@ -154,6 +174,30 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
     ).combineAll
   }
 
+  private val updateWays =
+    sql"""
+      UPDATE ways
+      SET geom = subquery.geom
+      FROM (
+          SELECT id, ST_MakeLine(points::geometry[]) as geom
+          FROM (
+              SELECT ways.osm_id AS id, array_agg(nodes.geom) AS points
+              FROM ways
+              CROSS JOIN LATERAL unnest(ways.nodes) AS node_id
+              INNER JOIN nodes ON nodes.osm_id = node_id
+              GROUP BY ways.osm_id
+          ) AS grouped_nodes
+      ) AS subquery
+      WHERE osm_id = subquery.id
+    """.update.run.transact(xa)
+
+  private val insertIntoLines =
+    sql"""
+      INSERT INTO lines (osm_id, name, tags, geom) VALUES (
+          SELECT osm_id, name, tags, geom FROM ways WHERE ST_IsClosed(geom)
+      )
+    """.update.run.transact(xa)
+
   // private def insertInto[T](sql: Fragment, xs: Chunk[T]) =
   //   Update(sql.update.sql)
   //     .updateMany[Chunk](xs.map(Tuple.fromProductTyped))
@@ -161,28 +205,38 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
   private val createSchema =
     List(
       sql"""DROP TABLE IF EXISTS importer_properties CASCADE""",
+
       sql"""DROP TABLE IF EXISTS nodes               CASCADE""",
+
       sql"""DROP TABLE IF EXISTS ways                CASCADE""",
       sql"""DROP TABLE IF EXISTS ways_nodes          CASCADE""",
+
       sql"""DROP TABLE IF EXISTS relations           CASCADE""",
       sql"""DROP TABLE IF EXISTS relations_nodes     CASCADE""",
       sql"""DROP TABLE IF EXISTS relations_ways      CASCADE""",
       sql"""DROP TABLE IF EXISTS relations_relations CASCADE""",
 
+      sql"""DROP TABLE IF EXISTS lines               CASCADE""",
+      sql"""DROP TABLE IF EXISTS polygons            CASCADE""",
+
       sql"""CREATE TABLE IF NOT EXISTS importer_properties (
               key         varchar                 PRIMARY KEY,
               value       varchar                 NOT NULL
             )""",
+
       sql"""CREATE TABLE IF NOT EXISTS nodes (
               osm_id      bigint                  PRIMARY KEY,
               name        varchar,
-              geom        geography(Point, 4326)  NOT NULL,
-              tags        jsonb                   NOT NULL
+              tags        jsonb                   NOT NULL,
+              geom        geography(Point, 4326)  NOT NULL
             )""",
+
       sql"""CREATE TABLE IF NOT EXISTS ways (
               osm_id      bigint                  PRIMARY KEY,
               name        varchar,
-              tags        jsonb                   NOT NULL
+              nodes       bigint[],
+              tags        jsonb                   NOT NULL,
+              geom        geography(LineString, 4326)
             )""",
       sql"""CREATE TABLE IF NOT EXISTS ways_nodes (
               way_id      bigint                  NOT NULL,
@@ -191,6 +245,7 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
               FOREIGN KEY (way_id)                REFERENCES ways(osm_id),
               FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
             )""",
+
       sql"""CREATE TABLE IF NOT EXISTS relations (
               osm_id      bigint                  PRIMARY KEY,
               name        varchar,
@@ -225,6 +280,20 @@ class PostgresExporter[F[_]: Async](config: PostgresExporter.Config) extends Log
 
               -- FOREIGN KEY (parent_id)             REFERENCES relations(osm_id),
               -- FOREIGN KEY (child_id)              REFERENCES relations(osm_id)
+            )""",
+
+      sql"""CREATE TABLE IF NOT EXISTS lines (
+              osm_id      bigint                  PRIMARY KEY,
+              name        varchar,
+              tags        jsonb                   NOT NULL,
+              geom        geography(LineString, 4326) NOT NULL
+            )""",
+
+      sql"""CREATE TABLE IF NOT EXISTS polygons (
+              osm_id      bigint                  PRIMARY KEY,
+              name        varchar,
+              tags        jsonb                   NOT NULL,
+              geom        geography(Polygon, 4326) NOT NULL
             )""",
     )
       .map(_.update.run)

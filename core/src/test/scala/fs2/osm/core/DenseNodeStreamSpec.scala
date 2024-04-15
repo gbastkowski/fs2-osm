@@ -11,14 +11,15 @@ import org.openstreetmap.osmosis.osmbinary.osmformat.StringTable
 import weaver.*
 
 object DenseNodeStreamSpec extends SimpleIOSuite {
+  private val denseNodes = osmformat.DenseNodes(
+    id        = Seq(42, 1, 2),
+    lat       = Seq(530000000, 10000000, 2000000),
+    lon       = Seq(100000000, 10000000, 2000000),
+    keysVals  = Seq(0, 0, 0),
+    denseinfo = Option.empty
+  )
+
   pureTest("id delta encoding") {
-    val denseNodes = osmformat.DenseNodes(
-      id        = Seq(42, 1, 2),
-      lat       = Seq(530000000, 10000000, 2000000),
-      lon       = Seq(100000000, 10000000, 2000000),
-      keysVals  = Seq.empty,
-      denseinfo = Option.empty
-    )
     val list = DenseNodeStream(StringTable(Seq.empty)).nodes(denseNodes).compile.toList
     expect.all(
       list(0).osmId == 42L,
@@ -28,16 +29,7 @@ object DenseNodeStreamSpec extends SimpleIOSuite {
   }
 
   pureTest("default offsets and granularity") {
-    val denseNodes  = osmformat.DenseNodes(
-      id        = Seq(42, 1, 1),
-      lat       = Seq(530000000, 10000000, 2000000),
-      lon       = Seq(100000000, 10000000, 2000000),
-      keysVals  = Seq.empty,
-      denseinfo = Option.empty
-    )
-
     val list = DenseNodeStream(StringTable(Seq.empty)).nodes(denseNodes).compile.toList
-
     expect.all(
       list(0).coordinate == Coordinate(10.0, 53.0),
       list(1).coordinate == Coordinate(11.0, 54.0),
@@ -46,15 +38,11 @@ object DenseNodeStreamSpec extends SimpleIOSuite {
   }
 
   pureTest("specific offsets and default granularity") {
-    val denseNodes  = osmformat.DenseNodes(
-      id        = Seq(42, 1, 1),
-      lat       = Seq(530000000, 10000000, 2000000),
-      lon       = Seq(100000000, 10000000, 2000000),
-      keysVals  = Seq.empty,
-      denseinfo = Option.empty
+    val list = DenseNodeStream(
+      stringTable = StringTable(Seq.empty),
+      latOffset = 200000000,
+      lonOffset = 100000000
     )
-
-    val list = DenseNodeStream(StringTable(Seq.empty), latOffset = 200000000, lonOffset = 100000000)
       .nodes(denseNodes)
       .compile
       .toList
@@ -67,15 +55,19 @@ object DenseNodeStreamSpec extends SimpleIOSuite {
   }
 
   pureTest("granularity of one degree") {
-    val denseNodes  = osmformat.DenseNodes(
-      id        = Seq(42, 1),
-      lat       = Seq(53, 1),
-      lon       = Seq(10, 1),
-      keysVals  = Seq.empty,
-      denseinfo = Option.empty
-    )
-
-    val list = DenseNodeStream(StringTable(Seq.empty), granularity = 1000000000).nodes(denseNodes).compile.toList
+    val list =
+      DenseNodeStream(
+        StringTable(Seq.empty),
+        granularity = 1000000000
+      ).nodes(
+        osmformat.DenseNodes(
+          id        = Seq(42, 1),
+          lat       = Seq(53, 1),
+          lon       = Seq(10, 1),
+          keysVals  = Seq(0, 0),
+          denseinfo = Option.empty
+        )
+      ).compile.toList
 
     expect.all(
       list(0).coordinate == Coordinate(10.0, 53.0),
@@ -84,32 +76,34 @@ object DenseNodeStreamSpec extends SimpleIOSuite {
   }
 
   pureTest("streams one without info") {
-    val stringTable = osmformat.StringTable(
-      Seq(
-        ByteString.copyFrom(Array[Byte](0)),
-        ByteString.copyFrom("message", `UTF-8`),
-        ByteString.copyFrom("hello", `UTF-8`),
-        ByteString.copyFrom("receiver", `UTF-8`),
-        ByteString.copyFrom("world", `UTF-8`),
-        ByteString.copyFrom("user", `UTF-8`)
+    val list = DenseNodeStream(
+      stringTable = osmformat.StringTable(
+        Seq(
+          ByteString.copyFrom(Array[Byte](0)),
+          ByteString.copyFrom("message", `UTF-8`),
+          ByteString.copyFrom("hello", `UTF-8`),
+          ByteString.copyFrom("receiver", `UTF-8`),
+          ByteString.copyFrom("world", `UTF-8`),
+          ByteString.copyFrom("user", `UTF-8`)
+        )
+      ),
+      granularity = 1000000000
+    ).nodes(
+      osmformat.DenseNodes(
+        id          = Seq(42, 1),
+        lat         = Seq(53, 1),
+        lon         = Seq(10, 1),
+        keysVals    = Seq(1, 2, 3, 4, 0, 1, 2, 3, 4),
+        denseinfo   = DenseInfo(
+          version   = Seq(10, 11),
+          timestamp = Seq(123, 124),
+          changeset = Seq(1, 1),
+          uid       = Seq(1, 1),
+          userSid   = Seq(5, 5),
+          visible   = Seq(true, true)
+        ).some
       )
-    )
-    val denseNodes  = osmformat.DenseNodes(
-      id          = Seq(42, 1),
-      lat         = Seq(53, 1),
-      lon         = Seq(10, 1),
-      keysVals    = Seq(1, 2, 3, 4),
-      denseinfo   = DenseInfo(
-        version   = Seq(10, 11),
-        timestamp = Seq(123, 124),
-        changeset = Seq(1, 1),
-        uid       = Seq(1, 1),
-        userSid   = Seq(5, 5),
-        visible   = Seq(true, true)
-      ).some
-    )
-
-    val list = DenseNodeStream(stringTable, granularity = 1000000000).nodes(denseNodes).compile.toList
+    ).compile.toList
 
     expect.all(
       list.size == 2,

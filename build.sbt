@@ -8,11 +8,9 @@ lazy val core = project
                                 logging                     ++
                                 sttp                        ++
                                 weaver  .map  { _ % Test }  ,
-
     Compile / PB.targets     := Seq(
                                   scalapb.gen(grpc = false) -> (Compile / sourceManaged).value
                                 ),
-
     testFrameworks           += new TestFramework("weaver.framework.CatsEffect")
   )
 
@@ -24,7 +22,7 @@ lazy val postgres = project
                                 fs2                         ++
                                 logging                     ++
                                 weaver  .map  { _ % Test }  ,
-
+    run / fork               := true,
     testFrameworks           += new TestFramework("weaver.framework.CatsEffect")
   )
 
@@ -32,7 +30,7 @@ lazy val it = project
   .dependsOn(core, postgres)
   .settings(
     libraryDependencies     ++= weaver  .map  { _ % Test }  ,
-
+    test / fork              := true,
     testFrameworks           += new TestFramework("weaver.framework.CatsEffect")
   )
 

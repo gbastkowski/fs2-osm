@@ -5,8 +5,8 @@ import cats.ApplicativeError
 import cats.effect.*
 import cats.syntax.all.*
 import fs2.Stream
-import scala.util.Either
 import org.apache.logging.log4j.scala.Logging
+import scala.util.Either
 
 object OsmEntityDecoder extends Logging {
   def pipe[F[_]: Sync](bytes: Stream[F, Byte]): Stream[F, OsmEntity] =
