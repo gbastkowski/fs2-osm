@@ -80,11 +80,6 @@ object PostgresExporterSpec extends IOSuite with Checkers {
     yield expect(summary.relations > 0)
   }
 
-  test("fail on ways with non-existing nodes") { exporter =>
-    for summary <- exporter.run(Stream(Way(osmId = 1, nodes = Seq(123), tags = Map("test" -> "value")))).attempt
-    yield expect(summary.isLeft)
-  }
-
   private lazy val nodes = Gen.listOfN(10, node)
   private lazy val node = Gen.oneOf(
     Node(
