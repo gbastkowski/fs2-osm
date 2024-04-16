@@ -130,7 +130,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   }
 
   private def handleNodes(n: Chunk[Node]) = {
-    val sql = sql"""INSERT INTO nodes (osm_id, tags) values (?, ?)"""
+    val sql = sql"""INSERT INTO nodes (osm_id, tags) VALUES (?, ?)"""
     val tuples = n.map { n =>
       (
         n.osmId,
@@ -143,10 +143,11 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
 
   private def handleWay(w: Way): Free[ConnectionOp, Int] = {
-    val osmId = w.osmId
-    val nodes = w.nodes.toArray
-    val tags  = toJson(w.tags)
-    val name  = w.tags.get("name")
+    val osmId     = w.osmId
+    val nodes     = w.nodes.toArray
+    val tags      = toJson(w.tags)
+    val name      = w.tags.get("name")
+
     val way       = sql"""INSERT INTO ways       (osm_id, name, nodes, tags)    VALUES ($osmId, $name, $nodes, $tags)""".update
     val relations = sql"""INSERT INTO ways_nodes (way_id, node_id)              VALUES (?, ?)""".update
 
@@ -169,25 +170,25 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     val insertIntoRelation =
       sql"""
         INSERT INTO relations (osm_id, name, tags)
-        VALUES ($osmId, $name, $tags)
+        VALUES                ($osmId, $name, $tags)
       """.update
     val insertIntoRelationNodes =
       sql"""
         INSERT INTO relations_nodes (relation_id, node_id, role)
-        VALUES (?, ?, ?)
-        ON CONFLICT (relation_id, node_id, role) DO NOTHING
+        VALUES                      (?, ?, ?)
+        ON CONFLICT                 (relation_id, node_id, role) DO NOTHING
       """.update
     val insertIntoRelationWays =
       sql"""
         INSERT INTO relations_ways (relation_id, way_id, role)
-        VALUES (?, ?, ?)
-        ON CONFLICT (relation_id, way_id, role) DO NOTHING
+        VALUES                     (?, ?, ?)
+        ON CONFLICT                (relation_id, way_id, role) DO NOTHING
       """.update
     val insertIntoRelationRelations =
       sql"""
         INSERT INTO relations_relations (parent_id, child_id, role)
-        VALUES (?, ?, ?)
-        ON CONFLICT (parent_id, child_id, role) DO NOTHING
+        VALUES                          (?, ?, ?)
+        ON CONFLICT                     (parent_id, child_id, role) DO NOTHING
       """.update
 
     Seq(
@@ -201,15 +202,16 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   private val updateWays =
     sql"""
       UPDATE ways
-      SET geom = subquery.geom
+      SET    geom = subquery.geom
       FROM (
-          SELECT id, ST_MakeLine(points::geometry[]) as geom
+          SELECT id, ST_MakeLine(points::geometry[])   AS geom
           FROM (
-              SELECT ways.osm_id AS id, array_agg(nodes.geom) AS points
-              FROM ways
-              CROSS JOIN LATERAL unnest(ways.nodes) AS node_id
-              INNER JOIN nodes ON nodes.osm_id = node_id
-              GROUP BY ways.osm_id
+              SELECT             ways.osm_id           AS id,
+                                 array_agg(nodes.geom) AS points
+              FROM               ways
+              CROSS JOIN LATERAL unnest(ways.nodes)    AS node_id
+              INNER JOIN         nodes                 ON nodes.osm_id = node_id
+              GROUP BY           ways.osm_id
           ) AS grouped_nodes
       ) AS subquery
       WHERE osm_id = subquery.id
@@ -217,8 +219,11 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
   private val insertIntoLines =
     sql"""
-      INSERT INTO lines (osm_id, name, tags, geom) VALUES (
-          SELECT osm_id, name, tags, geom FROM ways WHERE ST_IsClosed(geom)
+      INSERT INTO lines (osm_id, name, tags, geom)
+      VALUES (
+          SELECT osm_id, name, tags, geom
+          FROM   ways
+          WHERE  ST_IsClosed(geom)
       )
     """.update.run.transact(xa)
 

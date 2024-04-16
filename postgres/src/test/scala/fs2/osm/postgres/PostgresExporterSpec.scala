@@ -32,24 +32,26 @@ object PostgresExporterSpec extends IOSuite with Checkers {
     import PostgresExporter.*
     given Show[Summary] = _.toString
 
-    val gen = for
-      nodesInserted      <- Gen.posNum[Int]
-      nodesUpdated       <- Gen.posNum[Int]
-      nodesDeleted       <- Gen.posNum[Int]
-      waysInserted       <- Gen.posNum[Int]
-      waysUpdated        <- Gen.posNum[Int]
-      waysDeleted        <- Gen.posNum[Int]
-      relationsInserted  <- Gen.posNum[Int]
-      relationsUpdated   <- Gen.posNum[Int]
-      relationsDeleted   <- Gen.posNum[Int]
-    yield
-      Summary(
-        SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
-        SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
-        SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
-      )
+    val gen = Gen.listOf(
+      for
+        nodesInserted      <- Gen.posNum[Int]
+        nodesUpdated       <- Gen.posNum[Int]
+        nodesDeleted       <- Gen.posNum[Int]
+        waysInserted       <- Gen.posNum[Int]
+        waysUpdated        <- Gen.posNum[Int]
+        waysDeleted        <- Gen.posNum[Int]
+        relationsInserted  <- Gen.posNum[Int]
+        relationsUpdated   <- Gen.posNum[Int]
+        relationsDeleted   <- Gen.posNum[Int]
+      yield
+        Summary(
+          SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
+          SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
+          SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+        )
+    )
 
-    forall(Gen.listOf(gen)) { summaries =>
+    forall(gen) { summaries =>
       expect.all(
         summaries.combineAll.nodes.inserted      == summaries.map(_.nodes.inserted).combineAll,
         summaries.combineAll.nodes.updated       == summaries.map(_.nodes.updated).combineAll,
