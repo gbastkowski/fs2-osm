@@ -1,7 +1,9 @@
 package fs2.osm
 package postgres
 
+import cats.*
 import cats.effect.*
+import cats.syntax.all.*
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import doobie.util.transactor.Transactor
 import fs2.*
@@ -12,7 +14,6 @@ import weaver.*
 import weaver.scalacheck.*
 
 object PostgresExporterSpec extends IOSuite with Checkers {
-
   override type Res = PostgresExporter[IO]
   override def sharedResource: Resource[IO, Res] = {
     val acquire = IO {
@@ -25,6 +26,47 @@ object PostgresExporterSpec extends IOSuite with Checkers {
     }
     for conn <- Resource.make(acquire) { c => IO(c.close())}
     yield new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty))
+  }
+
+  test("PostgresExporter.Summary combines according to Monoid laws") {
+    import PostgresExporter.*
+    given Show[Summary] = _.toString
+
+    val gen = for
+      nodes        <- Gen.posNum[Int]
+      ways         <- Gen.posNum[Int]
+      updatedWays  <- Gen.posNum[Int]
+      relations    <- Gen.posNum[Int]
+    yield Summary(nodes, ways, updatedWays, relations)
+
+    forall(Gen.listOf(gen)) { summaries =>
+      expect.all(
+        summaries.combineAll.nodes       == summaries.map(_.nodes).combineAll,
+        summaries.combineAll.ways        == summaries.map(_.ways).combineAll,
+        summaries.combineAll.updatedWays == summaries.map(_.updatedWays).combineAll,
+        summaries.combineAll.relations   == summaries.map(_.relations).combineAll
+      )
+    }
+  }
+
+  test("PostgresExporter.Summary has an empty according to Monoid laws") {
+    import PostgresExporter.*
+    given Show[Summary] = _.toString
+
+    val empty = Monoid[Summary].empty
+    val gen = for
+      nodes        <- Gen.posNum[Int]
+      ways         <- Gen.posNum[Int]
+      updatedWays  <- Gen.posNum[Int]
+      relations    <- Gen.posNum[Int]
+    yield Summary(nodes, ways, updatedWays, relations)
+
+    forall(gen) { summary =>
+      expect.all(
+        Monoid[Summary].combine(summary, empty) == summary,
+        Monoid[Summary].combine(empty, summary) == summary,
+      )
+    }
   }
 
   test("insert entities") { exporter =>
