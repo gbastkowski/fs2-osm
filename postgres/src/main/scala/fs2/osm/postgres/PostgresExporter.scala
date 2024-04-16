@@ -243,10 +243,10 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
             )""",
       sql"""CREATE TABLE IF NOT EXISTS ways_nodes (
               way_id      bigint                  NOT NULL,
-              node_id     bigint                  NOT NULL,
+              node_id     bigint                  NOT NULL
 
-              FOREIGN KEY (way_id)                REFERENCES ways(osm_id),
-              FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
+              -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id),
+              -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
             )""",
 
       sql"""CREATE TABLE IF NOT EXISTS relations (
