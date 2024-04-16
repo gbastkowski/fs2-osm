@@ -21,6 +21,7 @@ lazy val postgres = project
                               embeddedPostgres  .map  { _ % Test }  ++
                               fs2                                   ++
                               logging                               ,
+    test / fork            := true                                  ,
     run / fork             := true
   )
 

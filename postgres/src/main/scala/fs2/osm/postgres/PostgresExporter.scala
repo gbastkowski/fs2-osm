@@ -46,16 +46,40 @@ object PostgresExporter {
   case class Config(jdbcUrl: String, username: String, password: String) derives ConfigReader
 
   case class Summary(
-    nodes: Int = 0,
-    ways: Int = 0,
-    updatedWays: Int = 0,
-    relations: Int = 0
+    nodes: SummaryItem      = SummaryItem(),
+    ways: SummaryItem       = SummaryItem(),
+    relations: SummaryItem  = SummaryItem()
   ) {
-    def addNodes(n: Int)      = copy(nodes      = nodes     + n)
-    def addRelations(n: Int)  = copy(relations  = relations + n)
-    def addWays(n: Int)       = copy(ways       = ways      + n)
+    def + (that: Summary) = Summary(
+      this.nodes      + that.nodes,
+      this.ways       + that.ways,
+      this.relations  + that.relations
+    )
+
+    def insertNodes(n: Int)      = copy(nodes      = nodes.insert(n))
+    def updateNodes(n: Int)      = copy(nodes      = nodes.update(n))
+    def deleteNodes(n: Int)      = copy(nodes      = nodes.delete(n))
+
+    def insertRelations(n: Int)  = copy(relations  = relations.insert(n))
+    def updateRelations(n: Int)  = copy(relations  = relations.update(n))
+    def deleteRelations(n: Int)  = copy(relations  = relations.delete(n))
+
+    def insertWays(n: Int)       = copy(ways       = ways.insert(n))
+    def updateWays(n: Int)       = copy(ways       = ways.update(n))
+    def deleteWays(n: Int)       = copy(ways       = ways.delete(n))
   }
-  case class SummaryItem(inserted: Int = 0, updated: Int = 0)
+
+  case class SummaryItem(inserted: Int = 0, updated: Int = 0, deleted: Int = 0) {
+    def + (that: SummaryItem) =
+      SummaryItem(
+        this.inserted + that.inserted,
+        this.updated + that.updated,
+        this.deleted + that.deleted
+      )
+    def insert(n: Int) = copy(inserted  = inserted + n)
+    def update(n: Int) = copy(updated   = updated  + n)
+    def delete(n: Int) = copy(deleted   = deleted  + n)
+  }
 
   given Monoid[Summary] with
     def empty: Summary = Summary()
@@ -63,7 +87,6 @@ object PostgresExporter {
       Summary(
         x.nodes           + y.nodes,
         x.ways            + y.ways,
-        x.updatedWays     + y.updatedWays,
         x.relations       + y.relations
       )
 }
@@ -86,13 +109,13 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       _        <- createSchema
       summary  <- rawImport
       updated  <- updateWays
-    yield summary.copy(updatedWays = updated)
+    yield summary.updateWays(updated)
   }
 
   private def handle(s: Summary)(e: OsmEntity): Free[ConnectionOp, Summary] = e match {
-    case n: Node     => handleNode(n).map     { s.addNodes      }
-    case r: Relation => handleRelation(r).map { s.addRelations  }
-    case w: Way      => handleWay(w).map      { s.addWays       }
+    case n: Node     => handleNode(n).map     { s.insertNodes      }
+    case r: Relation => handleRelation(r).map { s.insertRelations  }
+    case w: Way      => handleWay(w).map      { s.insertWays       }
   }
 
   private def handleNode(n: Node) = {
@@ -130,7 +153,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     Seq(
       way.run,
       Update[(Long, Long)](relations.sql).updateMany(nodes.toSeq.map { osmId -> _ })
-    ).combineAll
+    ).head
   }
 
   private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
@@ -172,7 +195,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       Update[(Long, Long, String)](insertIntoRelationNodes.sql)    .updateMany(nodes),
       Update[(Long, Long, String)](insertIntoRelationWays.sql)     .updateMany(ways),
       Update[(Long, Long, String)](insertIntoRelationRelations.sql).updateMany(relations)
-    ).combineAll
+    ).head
   }
 
   private val updateWays =

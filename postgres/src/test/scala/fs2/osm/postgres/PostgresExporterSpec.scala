@@ -33,18 +33,33 @@ object PostgresExporterSpec extends IOSuite with Checkers {
     given Show[Summary] = _.toString
 
     val gen = for
-      nodes        <- Gen.posNum[Int]
-      ways         <- Gen.posNum[Int]
-      updatedWays  <- Gen.posNum[Int]
-      relations    <- Gen.posNum[Int]
-    yield Summary(nodes, ways, updatedWays, relations)
+      nodesInserted      <- Gen.posNum[Int]
+      nodesUpdated       <- Gen.posNum[Int]
+      nodesDeleted       <- Gen.posNum[Int]
+      waysInserted       <- Gen.posNum[Int]
+      waysUpdated        <- Gen.posNum[Int]
+      waysDeleted        <- Gen.posNum[Int]
+      relationsInserted  <- Gen.posNum[Int]
+      relationsUpdated   <- Gen.posNum[Int]
+      relationsDeleted   <- Gen.posNum[Int]
+    yield
+      Summary(
+        SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
+        SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
+        SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+      )
 
     forall(Gen.listOf(gen)) { summaries =>
       expect.all(
-        summaries.combineAll.nodes       == summaries.map(_.nodes).combineAll,
-        summaries.combineAll.ways        == summaries.map(_.ways).combineAll,
-        summaries.combineAll.updatedWays == summaries.map(_.updatedWays).combineAll,
-        summaries.combineAll.relations   == summaries.map(_.relations).combineAll
+        summaries.combineAll.nodes.inserted      == summaries.map(_.nodes.inserted).combineAll,
+        summaries.combineAll.nodes.updated       == summaries.map(_.nodes.updated).combineAll,
+        summaries.combineAll.nodes.deleted       == summaries.map(_.nodes.deleted).combineAll,
+        summaries.combineAll.ways.inserted       == summaries.map(_.ways.inserted).combineAll,
+        summaries.combineAll.ways.updated        == summaries.map(_.ways.updated).combineAll,
+        summaries.combineAll.ways.deleted        == summaries.map(_.ways.deleted).combineAll,
+        summaries.combineAll.relations.inserted  == summaries.map(_.relations.inserted).combineAll,
+        summaries.combineAll.relations.updated   == summaries.map(_.relations.updated).combineAll,
+        summaries.combineAll.relations.deleted   == summaries.map(_.relations.deleted).combineAll
       )
     }
   }
@@ -55,11 +70,21 @@ object PostgresExporterSpec extends IOSuite with Checkers {
 
     val empty = Monoid[Summary].empty
     val gen = for
-      nodes        <- Gen.posNum[Int]
-      ways         <- Gen.posNum[Int]
-      updatedWays  <- Gen.posNum[Int]
-      relations    <- Gen.posNum[Int]
-    yield Summary(nodes, ways, updatedWays, relations)
+      nodesInserted      <- Gen.posNum[Int]
+      nodesUpdated       <- Gen.posNum[Int]
+      nodesDeleted       <- Gen.posNum[Int]
+      waysInserted       <- Gen.posNum[Int]
+      waysUpdated        <- Gen.posNum[Int]
+      waysDeleted        <- Gen.posNum[Int]
+      relationsInserted  <- Gen.posNum[Int]
+      relationsUpdated   <- Gen.posNum[Int]
+      relationsDeleted   <- Gen.posNum[Int]
+    yield
+      Summary(
+        SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
+        SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
+        SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+      )
 
     forall(gen) { summary =>
       expect.all(
@@ -91,15 +116,9 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       Relation(
         osmId = 4,
         relations = Seq(
-          Relation.Member.Node(
-            osmId = 1,
-            role = "begin"),
-          Relation.Member.Node(
-            osmId = 2,
-            role = "end"),
-          Relation.Member.Way(
-            osmId = 3,
-            role = "test")
+          Relation.Member.Node(osmId = 1, role = "begin"),
+          Relation.Member.Node(osmId = 2, role = "end"),
+          Relation.Member.Way(osmId = 3, role = "test")
         ),
         tags = Map("testkey" -> "testvalue"),
         info = Info.empty
@@ -107,34 +126,40 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       Relation(
         osmId = 5,
         relations = Seq(
-          Relation.Member.Relation(
-            osmId = 4,
-            role = "test")
+          Relation.Member.Relation(osmId = 4, role = "test")
         ),
         tags = Map("testkey" -> "testvalue"),
         info = Info.empty
       )
     )
 
+    given Eq[PostgresExporter.Summary] = _ == _
     for
       either <- exporter.run(entities).attempt
       summary = either.toTry.get
-    yield expect(summary.relations > 0)
+    yield expect.eql(
+      PostgresExporter.Summary(
+        nodes     = PostgresExporter.SummaryItem(2, 0, 0),
+        ways      = PostgresExporter.SummaryItem(1, 1, 0),
+        relations = PostgresExporter.SummaryItem(2, 0, 0)
+      ),
+      summary
+    )
   }
 
   private lazy val nodes = Gen.listOfN(10, node)
   private lazy val node = Gen.oneOf(
     Node(
-      osmId = 1,
+      osmId      = 1,
       coordinate = Coordinate(13.3290697, 52.4519232),
-      tags = Map("test" -> "value"),
-      info = Info.empty
+      tags       = Map("test" -> "value"),
+      info       = Info.empty
     ),
     Node(
-      osmId = 2,
+      osmId      = 2,
       coordinate = Coordinate(13.3290697, 52.4519232),
-      tags = Map.empty,
-      info = Info.empty
+      tags       = Map.empty,
+      info       = Info.empty
     )
   )
 
