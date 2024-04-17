@@ -13,14 +13,10 @@ object Dependencies {
     val postgisJdbc       = "2.5.1"
     val pureconfig        = "0.17.6"
     val scalaLogging      = "3.9.4"
+    val scopt             = "4.1.0"
     val sttp              = "3.9.5"
     val weaver            = "0.8.4"
   }
-
-  val pureconfig = Seq(
-    "com.github.pureconfig"          %% "pureconfig-core"         % Versions.pureconfig,
-    "com.github.pureconfig"          %% "pureconfig-cats"         % Versions.pureconfig,
-    "com.github.pureconfig"          %% "pureconfig-cats-effect"  % Versions.pureconfig)
 
   val doobie = Seq(
     "org.tpolecat"                   %% "doobie-core"             % Versions.doobie,
@@ -46,6 +42,15 @@ object Dependencies {
     "org.apache.logging.log4j"        % "log4j-core"              % Versions.log4j,
     "org.apache.logging.log4j"        % "log4j-slf4j-impl"        % Versions.log4j,
     "org.apache.logging.log4j"       %% "log4j-api-scala"         % Versions.log4jScala)
+
+  val pureconfig = Seq(
+    "com.github.pureconfig"          %% "pureconfig-core"         % Versions.pureconfig,
+    "com.github.pureconfig"          %% "pureconfig-cats"         % Versions.pureconfig,
+    "com.github.pureconfig"          %% "pureconfig-cats-effect"  % Versions.pureconfig)
+
+  val scopt = Seq(
+    "com.github.scopt" %% "scopt" % Versions.scopt
+  )
 
   val sttp = Seq(
      "com.softwaremill.sttp.client3" %% "fs2"                     % Versions.sttp)

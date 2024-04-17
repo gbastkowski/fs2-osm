@@ -34,8 +34,8 @@ object DownloadFromGeofabrikTest extends IOSuite {
     for
       summary  <- exporter run (bytes through OsmEntityDecoder.pipe)
     yield expect.all(
-      summary.nodes > 10000,
-      summary.ways > 10000,
+      summary.nodes.inserted > 10000,
+      summary.ways.inserted > 10000,
     )
   }
 

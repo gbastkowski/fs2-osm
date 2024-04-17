@@ -32,18 +32,18 @@ object PostgresExporter {
       .default
       .at("db")
       .loadF[F, Config]()
-      .map { config =>
-        Transactor.fromDriverManager[F](
-          driver      = "org.postgresql.Driver",
-          url         = config.jdbcUrl,
-          user        = config.username,
-          password    = config.password,
-          logHandler  = None
-        )
-      }
-      .map { new PostgresExporter[F](_) }
+      .map { config => apply(config) }
 
-  case class Config(jdbcUrl: String, username: String, password: String) derives ConfigReader
+  def apply[F[_]: Async](config: Config): PostgresExporter[F] =
+    new PostgresExporter[F](
+      Transactor.fromDriverManager[F](
+        driver      = "org.postgresql.Driver",
+        url         = config.jdbcUrl,
+        user        = config.username,
+        password    = config.password,
+        logHandler  = None
+      )
+    )
 
   case class Summary(
     nodes: SummaryItem      = SummaryItem(),
