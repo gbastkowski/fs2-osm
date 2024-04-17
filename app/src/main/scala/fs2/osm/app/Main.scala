@@ -10,37 +10,48 @@ import pureconfig.module.catseffect.syntax.*
 import scopt.OParser
 import sttp.client3.UriContext
 import sttp.model.Uri
+import java.time.*
+import java.text.NumberFormat
 
 object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] =
     parseArgs(args) match {
       case Some(config) =>
-        PostgresExporter[IO](config.db)
-          .run(Downloader[IO](config.uri).through(OsmEntityDecoder.pipe[IO]))
-          .map(s => println(prettySummary(s)))
-          .as(ExitCode.Success)
-
+        for
+          started  <- IO(LocalTime.now())
+          summary  <- PostgresExporter[IO](config.db).run(Downloader[IO](config.uri).through(OsmEntityDecoder.pipe[IO]))
+          finished <- IO(LocalTime.now())
+          _        <- IO(println(prettySummary(summary, Duration.between(started, finished))))
+        yield ExitCode.Success
       case _ => IO(ExitCode.Error)
     }
 
-  private def prettySummary(summary: PostgresExporter.Summary) =
-    val ni = summary.nodes.inserted.toString.padTo(12, ' ')
-    val nu = summary.nodes.updated.toString.padTo(12, ' ')
-    val nd = summary.nodes.deleted.toString.padTo(12, ' ')
-    val wi = summary.ways.inserted.toString.padTo(12, ' ')
-    val wu = summary.ways.updated.toString.padTo(12, ' ')
-    val wd = summary.ways.deleted.toString.padTo(12, ' ')
-    val ri = summary.relations.inserted.toString.padTo(12, ' ')
-    val ru = summary.relations.updated.toString.padTo(12, ' ')
-    val rd = summary.relations.deleted.toString.padTo(12, ' ')
+  private def prettySummary(summary: PostgresExporter.Summary, duration: Duration) =
+    def prefixPad(i: Int) =
+      val formattedNumber = NumberFormat.getInstance().format(i)
+      " ".repeat(12 - formattedNumber.length) + formattedNumber
+    val formattedDuration = (duration.toSeconds / 3600, duration.toSeconds / 60, duration.toSeconds % 60) match {
+      case (0,     0,       seconds) => s"$seconds seconds"
+      case (0,     minutes, seconds) => s"$minutes minutes, $seconds seconds"
+      case (hours, minutes, seconds) => s"$hours hours, $minutes minutes, $seconds seconds"
+    }
+    val ni = prefixPad(summary.nodes.inserted)
+    val nu = prefixPad(summary.nodes.updated)
+    val nd = prefixPad(summary.nodes.deleted)
+    val wi = prefixPad(summary.ways.inserted)
+    val wu = prefixPad(summary.ways.updated)
+    val wd = prefixPad(summary.ways.deleted)
+    val ri = prefixPad(summary.relations.inserted)
+    val ru = prefixPad(summary.relations.updated)
+    val rd = prefixPad(summary.relations.deleted)
     s"""
-      |              | nodes      | ways       | relations
-      |  ------------+------------+------------+------------
-      |   inserted   | $ni        | $wi        | $ri
-      |   updated    | $nu        | $wu        | $ru
-      |   deleted    | $nd        | $wd        | $rd
-      |  ------------+------------+------------+------------
-      |   elapsed time: 3.000.000 seconds
+      |               | nodes        | ways         | relations
+      |  -------------+--------------+--------------+--------------
+      |  inserted     | ${ni       } | ${wi       } | ${ri       }
+      |  updated      | ${nu       } | ${wu       } | ${ru       }
+      |  deleted      | ${nd       } | ${wd       } | ${rd       }
+      |  -------------+--------------+--------------+--------------
+      |  elapsed time: $formattedDuration
     """.stripMargin
 
   private def parseArgs(args: List[String]): Option[Config] = {
