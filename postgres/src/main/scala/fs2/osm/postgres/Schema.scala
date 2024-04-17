@@ -2,16 +2,20 @@ package fs2.osm
 package postgres
 
 import cats.syntax.all.*
+import doobie.implicits.*
+import doobie.util.fragment.Fragment
+import doobie.util.update.Update0
 
 object Schema {
 
   extension (schema: Schema) {
     def create: Seq[String] = schema.tables.map { _.create }
+    def drop:   Seq[String] = schema.tables.map { _.drop }
   }
 
   extension (table: Table) {
-    def create: String = s"CREATE TABLE IF NOT EXISTS ${table.name} (${table.columns.map(_.sqlDefinition).mkString(", ")})"
-    def drop: String   = s"DROP TABLE IF EXISTS ${table.name} CASCADE"
+    def create: String = createTable(table.name, table.columns.map(_.sqlDefinition))
+    def drop:   String = s"DROP TABLE IF EXISTS ${table.name} CASCADE"
   }
 
   extension (column: Column) {
@@ -25,6 +29,9 @@ object Schema {
       }
     ).mkString(" ")
   }
+
+  private def createTable(name: String, columns: Seq[String]) =
+    s"CREATE TABLE IF NOT EXISTS ${name} ( ${columns.mkString(", ")} )"
 }
 
 case class Schema(tables: Table*)

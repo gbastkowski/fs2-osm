@@ -53,15 +53,15 @@ object PostgresExporterSpec extends IOSuite with Checkers {
 
     forall(gen) { summaries =>
       expect.all(
-        summaries.combineAll.nodes.inserted      == summaries.map(_.nodes.inserted).combineAll,
-        summaries.combineAll.nodes.updated       == summaries.map(_.nodes.updated).combineAll,
-        summaries.combineAll.nodes.deleted       == summaries.map(_.nodes.deleted).combineAll,
-        summaries.combineAll.ways.inserted       == summaries.map(_.ways.inserted).combineAll,
-        summaries.combineAll.ways.updated        == summaries.map(_.ways.updated).combineAll,
-        summaries.combineAll.ways.deleted        == summaries.map(_.ways.deleted).combineAll,
-        summaries.combineAll.relations.inserted  == summaries.map(_.relations.inserted).combineAll,
-        summaries.combineAll.relations.updated   == summaries.map(_.relations.updated).combineAll,
-        summaries.combineAll.relations.deleted   == summaries.map(_.relations.deleted).combineAll
+        summaries.combineAll.nodes.inserted      == summaries.map { _.nodes.inserted     } .combineAll,
+        summaries.combineAll.nodes.updated       == summaries.map { _.nodes.updated      } .combineAll,
+        summaries.combineAll.nodes.deleted       == summaries.map { _.nodes.deleted      } .combineAll,
+        summaries.combineAll.ways.inserted       == summaries.map { _.ways.inserted      } .combineAll,
+        summaries.combineAll.ways.updated        == summaries.map { _.ways.updated       } .combineAll,
+        summaries.combineAll.ways.deleted        == summaries.map { _.ways.deleted       } .combineAll,
+        summaries.combineAll.relations.inserted  == summaries.map { _.relations.inserted } .combineAll,
+        summaries.combineAll.relations.updated   == summaries.map { _.relations.updated  } .combineAll,
+        summaries.combineAll.relations.deleted   == summaries.map { _.relations.deleted  } .combineAll
       )
     }
   }

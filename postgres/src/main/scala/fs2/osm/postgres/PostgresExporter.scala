@@ -46,14 +46,14 @@ object PostgresExporter {
     )
 
   case class Summary(
-    nodes: SummaryItem      = SummaryItem(),
-    ways: SummaryItem       = SummaryItem(),
-    relations: SummaryItem  = SummaryItem()
+    nodes: SummaryItem              = SummaryItem(),
+    ways: SummaryItem               = SummaryItem(),
+    relations: SummaryItem          = SummaryItem()
   ) {
     def + (that: Summary) = Summary(
-      this.nodes      + that.nodes,
-      this.ways       + that.ways,
-      this.relations  + that.relations
+      this.nodes        + that.nodes,
+      this.ways         + that.ways,
+      this.relations    + that.relations
     )
 
     def insertNodes(n: Int)      = copy(nodes      = nodes.insert(n))
@@ -82,13 +82,8 @@ object PostgresExporter {
   }
 
   given Monoid[Summary] with
-    def empty: Summary = Summary()
-    def combine(x: Summary, y: Summary): Summary =
-      Summary(
-        x.nodes           + y.nodes,
-        x.ways            + y.ways,
-        x.relations       + y.relations
-      )
+    def combine(x: Summary, y: Summary): Summary = x + y
+    def empty:                           Summary = Summary()
 }
 
 class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
@@ -107,6 +102,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
     for
       _        <- createSchema
+      _        <- writeImporterProperties
       summary  <- rawImport
       updated  <- updateWays
     yield summary.updateWays(updated)
@@ -199,7 +195,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     ).head
   }
 
-  private val updateWays =
+  private lazy val updateWays =
     sql"""
       UPDATE ways
       SET    geom = subquery.geom
@@ -217,7 +213,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       WHERE osm_id = subquery.id
     """.update.run.transact(xa)
 
-  private val insertIntoLines =
+  private lazy val insertIntoLines =
     sql"""
       INSERT INTO lines (osm_id, name, tags, geom)
       VALUES (
@@ -231,7 +227,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   //   Update(sql.update.sql)
   //     .updateMany[Chunk](xs.map(Tuple.fromProductTyped))
 
-  private val createSchema =
+  private lazy val createSchema =
     List(
       sql"""CREATE EXTENSION IF NOT EXISTS postgis""",
 
@@ -250,85 +246,115 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       sql"""DROP TABLE IF EXISTS lines               CASCADE""",
       sql"""DROP TABLE IF EXISTS polygons            CASCADE""",
 
-      sql"""CREATE TABLE IF NOT EXISTS importer_properties (
-              key         varchar                 PRIMARY KEY,
-              value       varchar                 NOT NULL
-            )""",
-
-      sql"""CREATE TABLE IF NOT EXISTS nodes (
-              osm_id      bigint                  PRIMARY KEY,
-              name        varchar,
-              tags        jsonb                   NOT NULL,
-              geom        geography(Point, 4326)  NOT NULL
-            )""",
-
-      sql"""CREATE TABLE IF NOT EXISTS ways (
-              osm_id      bigint                  PRIMARY KEY,
-              name        varchar,
-              nodes       bigint[],
-              tags        jsonb                   NOT NULL,
-              geom        geography(LineString, 4326)
-            )""",
-      sql"""CREATE TABLE IF NOT EXISTS ways_nodes (
-              way_id      bigint                  NOT NULL,
-              node_id     bigint                  NOT NULL
-
-              -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id),
-              -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
-            )""",
-
-      sql"""CREATE TABLE IF NOT EXISTS relations (
-              osm_id      bigint                  PRIMARY KEY,
-              name        varchar,
-              tags        jsonb                   NOT NULL
-            )""",
-      sql"""CREATE TABLE IF NOT EXISTS relations_nodes (
-              relation_id bigint                  NOT NULL,
-              node_id     bigint                  NOT NULL,
-              role        varchar                 NOT NULL,
-
-              UNIQUE(relation_id, node_id, role)
-
-              -- FOREIGN KEY (relation_id)           REFERENCES relations(osm_id),
-              -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
-            )""",
-      sql"""CREATE TABLE IF NOT EXISTS relations_ways (
-              relation_id bigint                  NOT NULL,
-              way_id      bigint                  NOT NULL,
-              role        varchar                 NOT NULL,
-
-              UNIQUE      (relation_id, way_id, role)
-
-              -- FOREIGN KEY (relation_id)           REFERENCES relations(osm_id),
-              -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id)
-            )""",
-      sql"""CREATE TABLE IF NOT EXISTS relations_relations (
-              parent_id   bigint                  NOT NULL,
-              child_id    bigint                  NOT NULL,
-              role        varchar                 NOT NULL,
-
-              UNIQUE(parent_id, child_id, role)
-
-              -- FOREIGN KEY (parent_id)             REFERENCES relations(osm_id),
-              -- FOREIGN KEY (child_id)              REFERENCES relations(osm_id)
-            )""",
-
-      sql"""CREATE TABLE IF NOT EXISTS lines (
-              osm_id      bigint                  PRIMARY KEY,
-              name        varchar,
-              tags        jsonb                   NOT NULL,
-              geom        geography(LineString, 4326) NOT NULL
-            )""",
-
-      sql"""CREATE TABLE IF NOT EXISTS polygons (
-              osm_id      bigint                  PRIMARY KEY,
-              name        varchar,
-              tags        jsonb                   NOT NULL,
-              geom        geography(Polygon, 4326) NOT NULL
-            )""",
+      importer_properties,
+      nodes,
+      ways,
+      ways_nodes,
+      relations,
+      relations_nodes,
+      relations_ways,
+      relations_relations,
+      polygons
     )
       .map(_.update.run)
       .sequence
       .as(())
       .transact(xa)
+
+  private lazy val writeImporterProperties =
+    Update[(String, String)](sql"INSERT INTO importer_properties (key, value) VALUES (?, ?)".update.sql)
+      .updateMany(Seq("source" -> "TODO"))
+      .transact(xa)
+
+  private lazy val importer_properties = sql"""
+    CREATE TABLE IF NOT EXISTS importer_properties (
+      key         varchar                 PRIMARY KEY,
+      value       varchar                 NOT NULL
+    )
+  """
+
+  private lazy val nodes = sql"""
+    CREATE TABLE IF NOT EXISTS nodes (
+      osm_id      bigint                  PRIMARY KEY,
+      name        varchar,
+      tags        jsonb                   NOT NULL,
+      geom        geography(Point, 4326)  NOT NULL
+    )
+  """
+
+  private lazy val ways = sql"""
+    CREATE TABLE IF NOT EXISTS ways (
+      osm_id      bigint                  PRIMARY KEY,
+      name        varchar,
+      nodes       bigint[],
+      tags        jsonb                   NOT NULL,
+      geom        geography(LineString, 4326)
+    )
+  """
+
+  private lazy val ways_nodes = sql"""
+    CREATE TABLE IF NOT EXISTS ways_nodes (
+      way_id      bigint                  NOT NULL,
+      node_id     bigint                  NOT NULL
+
+      -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id),
+      -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
+    )
+  """
+
+  private lazy val relations = sql"""
+    CREATE TABLE IF NOT EXISTS relations (
+      osm_id      bigint                  PRIMARY KEY,
+      name        varchar,
+      tags        jsonb                   NOT NULL
+    )
+  """
+
+  private lazy val relations_nodes = sql"""
+    CREATE TABLE IF NOT EXISTS relations_nodes (
+      relation_id bigint                  NOT NULL,
+      node_id     bigint                  NOT NULL,
+      role        varchar                 NOT NULL,
+
+      UNIQUE(relation_id, node_id, role)
+
+      -- FOREIGN KEY (relation_id)           REFERENCES relations(osm_id),
+      -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
+    )
+  """
+
+  private lazy val relations_ways = sql"""
+    CREATE TABLE IF NOT EXISTS relations_ways (
+      relation_id bigint                  NOT NULL,
+      way_id      bigint                  NOT NULL,
+      role        varchar                 NOT NULL,
+
+      UNIQUE      (relation_id, way_id, role)
+
+      -- FOREIGN KEY (relation_id)           REFERENCES relations(osm_id),
+      -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id)
+    )
+  """
+
+  private lazy val relations_relations = sql"""
+    CREATE TABLE IF NOT EXISTS relations_relations (
+      parent_id   bigint                  NOT NULL,
+      child_id    bigint                  NOT NULL,
+      role        varchar                 NOT NULL,
+
+      UNIQUE(parent_id, child_id, role)
+
+      -- FOREIGN KEY (parent_id)             REFERENCES relations(osm_id),
+      -- FOREIGN KEY (child_id)              REFERENCES relations(osm_id)
+    )
+  """
+
+  private lazy val polygons = sql"""
+    CREATE TABLE IF NOT EXISTS polygons (
+      osm_id      bigint                  PRIMARY KEY,
+      name        varchar,
+      tags        jsonb                   NOT NULL,
+      geom        geography(Polygon, 4326) NOT NULL
+    )
+  """
 }
