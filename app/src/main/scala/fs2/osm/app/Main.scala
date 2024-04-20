@@ -30,12 +30,19 @@ object Main extends IOApp {
     }
 
   private def prettySummary(summary: Summary, duration: Duration) =
+    val formattedDuration = (duration.toSeconds / 3600, duration.toSeconds / 60, duration.toSeconds % 60) match {
+      case (0,     0,       seconds) => s"$seconds seconds"
+      case (0,     minutes, seconds) => s"$minutes minutes, $seconds seconds"
+      case (hours, minutes, seconds) => s"$hours hours, $minutes minutes, $seconds seconds"
+    }
+
     val columnWidth =
       Set(
         summary.operations.keySet.map(_.length).max,
         NumberFormat.getInstance().format(summary.operations.values.map { _.inserted }.max).length,
         NumberFormat.getInstance().format(summary.operations.values.map { _.updated  }.max).length,
         NumberFormat.getInstance().format(summary.operations.values.map { _.deleted  }.max).length,
+        "elapsed time:".length
       ).max
 
     def prefixPad(i: Int) = String.format("%" + columnWidth + "s", NumberFormat.getInstance().format(i))
@@ -45,12 +52,6 @@ object Main extends IOApp {
         .map { _.padTo(columnWidth, padding) }
         .map { padding + _ + padding }
         .mkString(separator.toString)
-
-    val formattedDuration = (duration.toSeconds / 3600, duration.toSeconds / 60, duration.toSeconds % 60) match {
-      case (0,     0,       seconds) => s"$seconds seconds"
-      case (0,     minutes, seconds) => s"$minutes minutes, $seconds seconds"
-      case (hours, minutes, seconds) => s"$hours hours, $minutes minutes, $seconds seconds"
-    }
 
     List(
       List(
@@ -63,7 +64,7 @@ object Main extends IOApp {
       },
       List(
         row(List("-", "-", "-", "-"), '-', '+'),
-        row(List("elapsed time:", "$formattedDuration"), ' ', '|')
+        row(List("elapsed time:", s"$formattedDuration"), ' ', '|')
       )
     )
       .flatten

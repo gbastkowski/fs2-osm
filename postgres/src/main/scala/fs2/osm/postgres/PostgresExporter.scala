@@ -69,7 +69,6 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   private def handle(s: Summary)(e: OsmEntity): Free[ConnectionOp, Summary] = e match {
     case n: Node               => handleNode(n).map     { s.insert("nodes")      }
     case r: Relation           => handleRelation(r).map { s.insert("relations")  }
-    case w: Way if w.isPolygon => handlePolygon(w).map  { s.insert("polygons")   }
     case w: Way                => handleWay(w).map      { s.insert("ways")       }
   }
 
@@ -84,17 +83,17 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     """.update.run
   }
 
-  private def handleNodes(n: Chunk[Node]) = {
-    val sql = sql"""INSERT INTO nodes (osm_id, tags) VALUES (?, ?)"""
-    val tuples = n.map { n =>
-      (
-        n.osmId,
-        Point(n.coordinate.longitude, n.coordinate.latitude),
-        toJson(n.tags)
-      )
-    }
-    Update[(Long, Point, Json)](sql.update.sql).updateMany(tuples)
-  }
+  // private def handleNodes(n: Chunk[Node]) = {
+  //   val sql = sql"""INSERT INTO nodes (osm_id, tags) VALUES (?, ?)"""
+  //   val tuples = n.map { n =>
+  //     (
+  //       n.osmId,
+  //       Point(n.coordinate.longitude, n.coordinate.latitude),
+  //       toJson(n.tags)
+  //     )
+  //   }
+  //   Update[(Long, Point, Json)](sql.update.sql).updateMany(tuples)
+  // }
 
 
   private def handleWay(w: Way): Free[ConnectionOp, Int] = {
@@ -110,17 +109,6 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       way.run,
       Update[(Long, Long)](relations.sql).updateMany(nodes.toSeq.map { osmId -> _ })
     ).head
-  }
-
-  private def handlePolygon(p: Way): Free[ConnectionOp, Int] = {
-    val osmId     = p.osmId
-    val nodes     = p.nodes.toArray
-    val tags      = toJson(p.tags)
-    val name      = p.tags.get("name")
-
-    val polygon   = sql"""INSERT INTO polygons   (osm_id, name, nodes, tags)    VALUES ($osmId, $name, $nodes, $tags)""".update
-
-    polygon.run
   }
 
   private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
@@ -187,21 +175,35 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
       sql"""DROP TABLE IF EXISTS lines               CASCADE""",
       sql"""DROP TABLE IF EXISTS polygons            CASCADE""",
+      sql"""DROP TABLE IF EXISTS highways            CASCADE""",
+      sql"""DROP TABLE IF EXISTS highways_nodes      CASCADE""",
 
       importer_properties,
       nodes,
-      ways,
-      ways_nodes,
-      relations,
-      relations_nodes,
-      relations_ways,
-      relations_relations,
-      polygons
+      ways, ways_nodes,
+      relations, relations_nodes, relations_ways, relations_relations,
+      polygons,
+      highways, highways_nodes
     )
       .map(_.update.run)
       .sequence
       .as(())
       .transact(xa)
+
+  extension (t: Table)
+    def create = s"""
+      CREATE TABLE IF NOT EXISTS ${t.name} (
+        osm_id      bigint                    PRIMARY KEY,
+        name        varchar,
+        nodes       bigint[],
+        tags        jsonb                     NOT NULL,
+        geom        geography(LineString, 4326)
+      )
+    """
+
+    def drop = s"""
+      DROP TABLE IF EXISTS ${t.name}          CASCADE
+    """
 
   private lazy val writeImporterProperties =
     Update[(String, String)](sql"INSERT INTO importer_properties (key, value) VALUES (?, ?)".update.sql)
@@ -231,6 +233,33 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       nodes       bigint[],
       tags        jsonb                     NOT NULL,
       geom        geography(LineString, 4326)
+    )
+  """
+
+  private lazy val highways = sql"""
+    CREATE TABLE IF NOT EXISTS highways (
+      osm_id        bigint                    PRIMARY KEY,
+      name          varchar,
+      kind          varchar                   NOT NULL DEFAULT '',
+      footway       varchar,
+      sidewalk      varchar,
+      cycleway      varchar,
+      busway        varchar,
+      bicycle_road  boolean                   NOT NULL DEFAULT false,
+      surface       varchar,
+      nodes         bigint[],
+      tags          jsonb                     NOT NULL,
+      geom          geography(LineString, 4326)
+    )
+  """
+
+  private lazy val highways_nodes = sql"""
+    CREATE TABLE IF NOT EXISTS highways_nodes (
+      road_id     bigint                    NOT NULL,
+      node_id     bigint                    NOT NULL,
+
+      FOREIGN KEY (road_id)                 REFERENCES roads(osm_id),
+      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
     )
   """
 
