@@ -173,17 +173,23 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
       sql"""DROP TABLE IF EXISTS relations_ways      CASCADE""",
       sql"""DROP TABLE IF EXISTS relations_relations CASCADE""",
 
-      sql"""DROP TABLE IF EXISTS lines               CASCADE""",
-      sql"""DROP TABLE IF EXISTS polygons            CASCADE""",
       sql"""DROP TABLE IF EXISTS highways            CASCADE""",
       sql"""DROP TABLE IF EXISTS highways_nodes      CASCADE""",
+      sql"""DROP TABLE IF EXISTS railways            CASCADE""",
+      sql"""DROP TABLE IF EXISTS railways_nodes      CASCADE""",
+      sql"""DROP TABLE IF EXISTS buildings           CASCADE""",
+      sql"""DROP TABLE IF EXISTS buildings_nodes     CASCADE""",
+      sql"""DROP TABLE IF EXISTS protected_areas     CASCADE""",
+      sql"""DROP TABLE IF EXISTS protected_areas_nodes     CASCADE""",
 
       importer_properties,
       nodes,
       ways, ways_nodes,
       relations, relations_nodes, relations_ways, relations_relations,
-      polygons,
-      highways, highways_nodes
+      highways, highways_nodes,
+      railways, railways_nodes,
+      buildings, buildings_nodes,
+      protectedAreas, protectedAreas_nodes,
     )
       .map(_.update.run)
       .sequence
@@ -255,21 +261,75 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
   private lazy val highways_nodes = sql"""
     CREATE TABLE IF NOT EXISTS highways_nodes (
-      road_id     bigint                    NOT NULL,
+      highway_id  bigint                    NOT NULL,
       node_id     bigint                    NOT NULL,
 
-      FOREIGN KEY (road_id)                 REFERENCES roads(osm_id),
+      FOREIGN KEY (highway_id)              REFERENCES highways(osm_id),
       FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
     )
   """
 
-  private lazy val polygons = sql"""
-    CREATE TABLE IF NOT EXISTS polygons (
-      osm_id      bigint                    PRIMARY KEY,
-      name        varchar,
-      nodes       bigint[],
-      tags        jsonb                     NOT NULL,
-      geom        geography(Polygon, 4326)
+  private lazy val railways = sql"""
+    CREATE TABLE IF NOT EXISTS railways (
+      osm_id        bigint                    PRIMARY KEY,
+      name          varchar,
+      official_name varchar,
+      operator      varchar,
+      nodes         bigint[],
+      tags          jsonb                     NOT NULL,
+      geom          geography(Polygon, 4326)
+    )
+  """
+
+  private lazy val railways_nodes = sql"""
+    CREATE TABLE IF NOT EXISTS railways_nodes (
+      railway_id  bigint                    NOT NULL,
+      node_id     bigint                    NOT NULL,
+
+      FOREIGN KEY (railway_id)              REFERENCES railways(osm_id),
+      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
+    )
+  """
+
+  private lazy val buildings = sql"""
+    CREATE TABLE IF NOT EXISTS buildings (
+      osm_id        bigint                    PRIMARY KEY,
+      name          varchar,
+      kind          varchar,
+      nodes         bigint[],
+      tags          jsonb                     NOT NULL,
+      geom          geography(Polygon, 4326)
+    )
+  """
+
+  private lazy val buildings_nodes = sql"""
+    CREATE TABLE IF NOT EXISTS buildings_nodes (
+      building_id  bigint                   NOT NULL,
+      node_id     bigint                    NOT NULL,
+
+      FOREIGN KEY (building_id)             REFERENCES buildings(osm_id),
+      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
+    )
+  """
+
+  private lazy val protectedAreas = sql"""
+    CREATE TABLE IF NOT EXISTS protected_areas (
+      osm_id        bigint                    PRIMARY KEY,
+      name          varchar,
+      kind          varchar,
+      nodes         bigint[],
+      tags          jsonb                     NOT NULL,
+      geom          geography(Polygon, 4326)
+    )
+  """
+
+  private lazy val protectedAreas_nodes = sql"""
+    CREATE TABLE IF NOT EXISTS protected_areas_nodes (
+      protected_area_id  bigint             NOT NULL,
+      node_id     bigint                    NOT NULL,
+
+      FOREIGN KEY (protected_area_id)       REFERENCES protected_areas(osm_id),
+      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
     )
   """
 
