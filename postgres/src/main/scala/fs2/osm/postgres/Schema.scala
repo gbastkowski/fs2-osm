@@ -7,47 +7,86 @@ import doobie.util.fragment.Fragment
 import doobie.util.update.Update0
 
 object Schema {
+  extension (s: Schema)
+    def create: Seq[String] = s.tables.map { _.create }
+    def drop:   Seq[String] = s.tables.map { _.drop }
 
-  extension (schema: Schema) {
-    def create: Seq[String] = schema.tables.map { _.create }
-    def drop:   Seq[String] = schema.tables.map { _.drop }
-  }
+  extension (t: Table)
+    def create: String = {
+      val tableDefinition = (
+        t.columns    .map { _.sqlDefinition } :::
+        t.constraints.map { _.sqlDefinition }
+      )
+        .mkString(", ")
 
-  extension (table: Table) {
-    def create: String = createTable(table.name, table.columns.map(_.sqlDefinition))
-    def drop:   String = s"DROP TABLE IF EXISTS ${table.name} CASCADE"
-  }
+      s"CREATE TABLE IF NOT EXISTS ${t.name} ( $tableDefinition )"
+    }
 
-  extension (column: Column) {
-    def sqlDefinition: String = Seq(
-      column.name,
-      column.datatype match {
-        case g: Geography  => "geography(Point, 4326)"
-        case BigInt        => "bigint"
-        case Jsonb         => "jsonb"
-        case VarChar       => "varchar"
-      }
-    ).mkString(" ")
-  }
+    def drop: String = s"DROP TABLE IF EXISTS ${t.name} CASCADE"
 
-  private def createTable(name: String, columns: Seq[String]) =
-    s"CREATE TABLE IF NOT EXISTS ${name} ( ${columns.mkString(", ")} )"
+  extension (c: Column)
+    def sqlDefinition: String =
+      List(
+        c.name,
+        c.datatype match {
+          case VarChar               => "VARCHAR"
+          case BigInt                => "BIGINT"
+          case BigIntArray           => "BIGINT[]"
+          case Geography(tpe, srid)  => s"GEOGRAPHY($tpe, $srid)"
+          case Jsonb                 => "JSONB"
+        },
+        c.constraint.map {
+          case NotNull => "NOT NULL"
+          case PrimaryKey => "PRIMARY KEY"
+        }.getOrElse("")
+      )
+        .filter { _.nonEmpty }
+        .mkString(" ")
+
+  extension (c: TableConstraint)
+    def sqlDefinition: String = c match {
+      case c: UniqueConstraint                              => s"UNIQUE (${c.columns.mkString(",")})"
+      case ForeignKeyConstraint(column, (table, reference)) => s"FOREIGN KEY ($column) REFERENCES $table($reference)"
+    }
 }
 
 case class Schema(tables: Table*)
 
-case class Table(name: String, columns: Column*)
+object Table {
+  def apply(name: String, columns: Column*): Table = Table(name, columns.toList, List.empty)
+}
+case class Table(name: String, columns: List[Column], constraints: List[TableConstraint]) {
+  def withColumns(columns: Column*):                  Table = copy(columns = columns.toList)
+  def withConstraints(constraints: TableConstraint*): Table = copy(constraints = constraints.toList)
+}
 
-case class Column(name: String, datatype: Datatype)
+object Column {
+  def apply(name: String, datatype: Datatype): Column = Column(name, datatype, Option.empty)
+  def apply(name: String, datatype: Datatype, constraint: ColumnConstraint): Column =
+    Column(name, datatype, constraint.some)
+}
+case class Column(name: String, datatype: Datatype, constraint: Option[ColumnConstraint])
+
+sealed trait TableConstraint
+case class UniqueConstraint(columns: String*) extends TableConstraint
+case class ForeignKeyConstraint(column: String, references: (String, String)) extends TableConstraint
+
+sealed trait ColumnConstraint
+case object PrimaryKey extends ColumnConstraint
+case object NotNull extends ColumnConstraint
 
 sealed trait Datatype
-case class  Geography(t: GeographyType, n: SomeNumber)  extends Datatype
-case object BigInt                                      extends Datatype
-case object Jsonb                                       extends Datatype
-case object VarChar                                     extends Datatype
+case class  Geography(t: GeographyType, srid: Srid) extends Datatype
+case object BigInt                                  extends Datatype
+case object BigIntArray                             extends Datatype
+case object Jsonb                                   extends Datatype
+case object VarChar                                 extends Datatype
 
 sealed trait GeographyType
-case object Point                                       extends GeographyType
+case object LineString                              extends GeographyType
+case object Point                                   extends GeographyType
+case object Polygon                                 extends GeographyType
 
-sealed trait SomeNumber
-case object `4326`                                      extends SomeNumber
+type Srid = Int
+
+val Wgs84: Srid = 4326

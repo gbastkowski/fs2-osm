@@ -44,14 +44,15 @@ object PostgresExporter {
         logHandler  = None
       )
     )
-
 }
 
 class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
+  import Schema.*
+
   def run(entities: Stream[F, OsmEntity]): F[Summary] = {
     val rawImport = entities
       .map      { handle(Summary()) }
-      .chunkN(10000, allowFewer = true)
+      .chunkN(50000, allowFewer = true)
       .flatMap  { chunk => Stream.eval(chunk.combineAll.transact(xa)) }
       .debug(n => s"inserted $n entities", logger.debug(_) )
       .foldMonoid
@@ -157,90 +158,30 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   //   Update(sql.update.sql)
   //     .updateMany[Chunk](xs.map(Tuple.fromProductTyped))
 
-  private lazy val createSchema =
-    List(
-      sql"""CREATE EXTENSION IF NOT EXISTS postgis""",
+  private lazy val createSchema = {
+    val initSchema   = sql"""CREATE EXTENSION IF NOT EXISTS postgis"""
+    val dropTables   = DefaultSchema.tables.toList.map { t => Fragment.const(t.drop) }
+    val createTables =
+      DefaultSchema
+        .tables.toList
+        .map { t=> Fragment.const(t.create) } ::: List(
+          highways, highways_nodes,
+          railways, railways_nodes,
+          buildings, buildings_nodes,
+          protectedAreas, protectedAreas_nodes,
+        )
 
-      sql"""DROP TABLE IF EXISTS importer_properties CASCADE""",
-
-      sql"""DROP TABLE IF EXISTS nodes               CASCADE""",
-
-      sql"""DROP TABLE IF EXISTS ways                CASCADE""",
-      sql"""DROP TABLE IF EXISTS ways_nodes          CASCADE""",
-
-      sql"""DROP TABLE IF EXISTS relations           CASCADE""",
-      sql"""DROP TABLE IF EXISTS relations_nodes     CASCADE""",
-      sql"""DROP TABLE IF EXISTS relations_ways      CASCADE""",
-      sql"""DROP TABLE IF EXISTS relations_relations CASCADE""",
-
-      sql"""DROP TABLE IF EXISTS highways            CASCADE""",
-      sql"""DROP TABLE IF EXISTS highways_nodes      CASCADE""",
-      sql"""DROP TABLE IF EXISTS railways            CASCADE""",
-      sql"""DROP TABLE IF EXISTS railways_nodes      CASCADE""",
-      sql"""DROP TABLE IF EXISTS buildings           CASCADE""",
-      sql"""DROP TABLE IF EXISTS buildings_nodes     CASCADE""",
-      sql"""DROP TABLE IF EXISTS protected_areas     CASCADE""",
-      sql"""DROP TABLE IF EXISTS protected_areas_nodes     CASCADE""",
-
-      importer_properties,
-      nodes,
-      ways, ways_nodes,
-      relations, relations_nodes, relations_ways, relations_relations,
-      highways, highways_nodes,
-      railways, railways_nodes,
-      buildings, buildings_nodes,
-      protectedAreas, protectedAreas_nodes,
-    )
-      .map(_.update.run)
+    (initSchema :: dropTables ::: createTables)
+      .map { _.update.run }
       .sequence
       .as(())
       .transact(xa)
-
-  extension (t: Table)
-    def create = s"""
-      CREATE TABLE IF NOT EXISTS ${t.name} (
-        osm_id      bigint                    PRIMARY KEY,
-        name        varchar,
-        nodes       bigint[],
-        tags        jsonb                     NOT NULL,
-        geom        geography(LineString, 4326)
-      )
-    """
-
-    def drop = s"""
-      DROP TABLE IF EXISTS ${t.name}          CASCADE
-    """
+  }
 
   private lazy val writeImporterProperties =
     Update[(String, String)](sql"INSERT INTO importer_properties (key, value) VALUES (?, ?)".update.sql)
       .updateMany(Seq("source" -> "TODO"))
       .transact(xa)
-
-  private lazy val importer_properties = sql"""
-    CREATE TABLE IF NOT EXISTS importer_properties (
-      key         varchar                   PRIMARY KEY,
-      value       varchar                   NOT NULL
-    )
-  """
-
-  private lazy val nodes = sql"""
-    CREATE TABLE IF NOT EXISTS nodes (
-      osm_id      bigint                    PRIMARY KEY,
-      name        varchar,
-      tags        jsonb                     NOT NULL,
-      geom        geography(Point, 4326)    NOT NULL
-    )
-  """
-
-  private lazy val ways = sql"""
-    CREATE TABLE IF NOT EXISTS ways (
-      osm_id      bigint                    PRIMARY KEY,
-      name        varchar,
-      nodes       bigint[],
-      tags        jsonb                     NOT NULL,
-      geom        geography(LineString, 4326)
-    )
-  """
 
   private lazy val highways = sql"""
     CREATE TABLE IF NOT EXISTS highways (
@@ -330,63 +271,6 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
       FOREIGN KEY (protected_area_id)       REFERENCES protected_areas(osm_id),
       FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
-    )
-  """
-
-  private lazy val ways_nodes = sql"""
-    CREATE TABLE IF NOT EXISTS ways_nodes (
-      way_id      bigint                    NOT NULL,
-      node_id     bigint                    NOT NULL
-
-      -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id),
-      -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
-    )
-  """
-
-  private lazy val relations = sql"""
-    CREATE TABLE IF NOT EXISTS relations (
-      osm_id      bigint                    PRIMARY KEY,
-      name        varchar,
-      tags        jsonb                     NOT NULL
-    )
-  """
-
-  private lazy val relations_nodes = sql"""
-    CREATE TABLE IF NOT EXISTS relations_nodes (
-      relation_id bigint                    NOT NULL,
-      node_id     bigint                    NOT NULL,
-      role        varchar                   NOT NULL,
-
-      UNIQUE(relation_id, node_id, role)
-
-      -- FOREIGN KEY (relation_id)           REFERENCES relations(osm_id),
-      -- FOREIGN KEY (node_id)               REFERENCES nodes(osm_id)
-    )
-  """
-
-  private lazy val relations_ways = sql"""
-    CREATE TABLE IF NOT EXISTS relations_ways (
-      relation_id bigint                    NOT NULL,
-      way_id      bigint                    NOT NULL,
-      role        varchar                   NOT NULL,
-
-      UNIQUE      (relation_id, way_id, role)
-
-      -- FOREIGN KEY (relation_id)           REFERENCES relations(osm_id),
-      -- FOREIGN KEY (way_id)                REFERENCES ways(osm_id)
-    )
-  """
-
-  private lazy val relations_relations = sql"""
-    CREATE TABLE IF NOT EXISTS relations_relations (
-      parent_id   bigint                    NOT NULL,
-      child_id    bigint                    NOT NULL,
-      role        varchar                   NOT NULL,
-
-      UNIQUE(parent_id, child_id, role)
-
-      -- FOREIGN KEY (parent_id)             REFERENCES relations(osm_id),
-      -- FOREIGN KEY (child_id)              REFERENCES relations(osm_id)
     )
   """
 }
