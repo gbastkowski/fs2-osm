@@ -45,23 +45,25 @@ object PostgresExporterSpec extends IOSuite with Checkers {
         relationsDeleted   <- Gen.posNum[Int]
       yield
         Summary(
-          SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
-          SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
-          SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+          Map(
+            "nodes"        -> SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
+            "ways"         -> SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
+            "relations"    -> SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+          )
         )
     )
 
     forall(gen) { summaries =>
       expect.all(
-        summaries.combineAll.nodes.inserted      == summaries.map { _.nodes.inserted     } .combineAll,
-        summaries.combineAll.nodes.updated       == summaries.map { _.nodes.updated      } .combineAll,
-        summaries.combineAll.nodes.deleted       == summaries.map { _.nodes.deleted      } .combineAll,
-        summaries.combineAll.ways.inserted       == summaries.map { _.ways.inserted      } .combineAll,
-        summaries.combineAll.ways.updated        == summaries.map { _.ways.updated       } .combineAll,
-        summaries.combineAll.ways.deleted        == summaries.map { _.ways.deleted       } .combineAll,
-        summaries.combineAll.relations.inserted  == summaries.map { _.relations.inserted } .combineAll,
-        summaries.combineAll.relations.updated   == summaries.map { _.relations.updated  } .combineAll,
-        summaries.combineAll.relations.deleted   == summaries.map { _.relations.deleted  } .combineAll
+        summaries.combineAll.get("nodes").inserted      == summaries.map { _.get("nodes").inserted     } .combineAll,
+        summaries.combineAll.get("nodes").updated       == summaries.map { _.get("nodes").updated      } .combineAll,
+        summaries.combineAll.get("nodes").deleted       == summaries.map { _.get("nodes").deleted      } .combineAll,
+        summaries.combineAll.get("ways").inserted       == summaries.map { _.get("ways").inserted      } .combineAll,
+        summaries.combineAll.get("ways").updated        == summaries.map { _.get("ways").updated       } .combineAll,
+        summaries.combineAll.get("ways").deleted        == summaries.map { _.get("ways").deleted       } .combineAll,
+        summaries.combineAll.get("relations").inserted  == summaries.map { _.get("relations").inserted } .combineAll,
+        summaries.combineAll.get("relations").updated   == summaries.map { _.get("relations").updated  } .combineAll,
+        summaries.combineAll.get("relations").deleted   == summaries.map { _.get("relations").deleted  } .combineAll
       )
     }
   }
@@ -78,14 +80,20 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       waysInserted       <- Gen.posNum[Int]
       waysUpdated        <- Gen.posNum[Int]
       waysDeleted        <- Gen.posNum[Int]
+      polygonsInserted   <- Gen.posNum[Int]
+      polygonsUpdated    <- Gen.posNum[Int]
+      polygonsDeleted    <- Gen.posNum[Int]
       relationsInserted  <- Gen.posNum[Int]
       relationsUpdated   <- Gen.posNum[Int]
       relationsDeleted   <- Gen.posNum[Int]
     yield
       Summary(
-        SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
-        SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
-        SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+        Map(
+          "nodes"        -> SummaryItem(nodesInserted,     nodesUpdated,     nodesDeleted),
+          "ways"         -> SummaryItem(waysInserted,      waysUpdated,      waysDeleted),
+          "polygons"     -> SummaryItem(polygonsInserted,  polygonsUpdated,  polygonsDeleted),
+          "relations"    -> SummaryItem(relationsInserted, relationsUpdated, relationsDeleted)
+        )
       )
 
     forall(gen) { summary =>
@@ -141,9 +149,11 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       summary = either.toTry.get
     yield expect.eql(
       PostgresExporter.Summary(
-        nodes     = PostgresExporter.SummaryItem(2, 0, 0),
-        ways      = PostgresExporter.SummaryItem(1, 1, 0),
-        relations = PostgresExporter.SummaryItem(2, 0, 0)
+        Map(
+          "nodes"      -> PostgresExporter.SummaryItem(2, 0, 0),
+          "ways"       -> PostgresExporter.SummaryItem(1, 1, 0),
+          "relations"  -> PostgresExporter.SummaryItem(2, 0, 0)
+        )
       ),
       summary
     )

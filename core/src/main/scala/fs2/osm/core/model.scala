@@ -2,7 +2,7 @@ package fs2.osm
 package core
 
 import java.time.Instant
-import org.openstreetmap.osmosis.osmbinary.osmformat
+import org.openstreetmap.osmosis.osmbinary.{osmformat => of}
 
 sealed trait OsmEntity {
   val osmId: Long
@@ -13,7 +13,7 @@ sealed trait OsmEntity {
 }
 
 object Relation {
-  def apply(stringTable: osmformat.StringTable, relation: osmformat.Relation): Relation = {
+  def apply(stringTable: of.StringTable, relation: of.Relation): Relation = {
     val relations =
       (relation.memids.scanLeft(0L) { _ + _ }.drop(1), relation.types, relation.rolesSid)
         .zipped
@@ -54,14 +54,13 @@ case class Relation(
 ) extends OsmEntity
 
 object Way {
-  def apply(stringTable: osmformat.StringTable, way: osmformat.Way): Way = {
+  def apply(stringTable: of.StringTable, way: of.Way): Way =
     Way(
       way.id,
       way.refs.scanLeft(0L) { _ + _ }.drop(1),
       stringTable.tags(way.keys, way.vals),
       Info(stringTable, way.info)
     )
-  }
 }
 
 case class Way(
@@ -69,7 +68,11 @@ case class Way(
   nodes: Seq[Long],
   tags: Map[String, String],
   info: Info = Info.empty
-) extends OsmEntity
+) extends OsmEntity {
+  def isClosed: Boolean  = nodes.head == nodes.last
+  def isPolygon: Boolean = isClosed
+  def isRing: Boolean    = isClosed && !isPolygon
+}
 
 case class Node(
   osmId: Long,
@@ -79,7 +82,7 @@ case class Node(
 ) extends OsmEntity
 
 object Info {
-  def apply(stringTable: osmformat.StringTable, maybeInfo: Option[osmformat.Info]): Info =
+  def apply(stringTable: of.StringTable, maybeInfo: Option[of.Info]): Info =
     maybeInfo.fold(empty) { info =>
         Info(
           info.version,
