@@ -3,7 +3,7 @@ package app
 
 import cats.effect.*
 import fs2.osm.core.*
-import fs2.osm.postgres.{PostgresExporter, RelationBuilder, Summary, SummaryItem}
+import fs2.osm.postgres.{PostgresExporter, Summary, SummaryItem}
 import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
@@ -22,7 +22,6 @@ object Main extends IOApp {
           started  <- IO(LocalTime.now())
           xa        = config.db.transactor[IO]
           summary  <- new PostgresExporter[IO](xa).run(Downloader[IO](config.uri).through(OsmEntityDecoder.pipe[IO]))
-          summary  <- new RelationBuilder[IO](xa).run(summary)
           finished <- IO(LocalTime.now())
           _        <- IO(println(prettySummary(summary, Duration.between(started, finished))))
         yield ExitCode.Success

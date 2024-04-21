@@ -18,15 +18,16 @@ object DownloadFromGeofabrikTest extends IOSuite {
   override type Res = PostgresExporter[IO]
   override def sharedResource: Resource[IO, Res] = {
     val acquire = IO {
-      EmbeddedPostgres
-        .builder()
-        .setImage(DockerImageName.parse("postgis/postgis"))
-        .start()
-        .getPostgresDatabase()
-        .getConnection()
+      val embedded = EmbeddedPostgres.builder().setImage(DockerImageName.parse("postgis/postgis")).start()
+      embedded.getPostgresDatabase().getConnection()
     }
-    for conn <- Resource.make(acquire) { c => IO(c.close())}
-    yield new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty))
+
+    Resource
+      .make(acquire) { c => IO(c.close()) }
+      .map { conn => new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty)) }
+
+    Resource
+      .eval(IO(new PostgresExporter[IO](postgres.Config("jdbc:postgresql:fs2-osm", "gunnar.bastkowski", "").transactor)))
   }
 
   test("download Bremen data from web and export to Postgres") { exporter =>

@@ -37,9 +37,10 @@ object SchemaSpec extends SimpleIOSuite with Checkers {
       }
 
       val expectedConstraint = column.constraint match {
-        case Some(PrimaryKey)      => "PRIMARY KEY"
-        case Some(NotNull)         => "NOT NULL"
-        case None                  => ""
+        case Some(PrimaryKey)               => "PRIMARY KEY"
+        case Some(NotNull(Some(default)))   => s"NOT NULL DEFAULT $default"
+        case Some(NotNull(None))            => "NOT NULL"
+        case None                           => ""
       }
 
       expect.eql(
@@ -56,7 +57,7 @@ object SchemaSpec extends SimpleIOSuite with Checkers {
     for
       name         <- Gen.alphaStr
       datatype     <- Gen.oneOf[Datatype](BigInt, BigIntArray, Jsonb, VarChar)
-      constraint   <- Gen.option[ColumnConstraint](Gen.oneOf(NotNull, PrimaryKey))
+      constraint   <- Gen.option[ColumnConstraint](Gen.oneOf(NotNull("test"), NotNull(), PrimaryKey))
     yield Column(name, datatype, constraint)
 
   private lazy val genTable =

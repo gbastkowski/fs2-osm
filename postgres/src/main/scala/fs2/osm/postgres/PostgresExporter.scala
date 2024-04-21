@@ -49,12 +49,21 @@ object PostgresExporter {
 class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   import Schema.*
 
+  private val features =
+    List(
+      ImporterPropertiesFeature(),
+      HighwayFeature(),
+      BuildingFeature(),
+      RailwayFeature(),
+      ProtectedAreaFeature()
+    )
+
   def run(entities: Stream[F, OsmEntity]): F[Summary] = {
     val rawImport = entities
       .map      { handle(Summary()) }
-      .chunkN(50000, allowFewer = true)
+      .chunkN   (100000,                               allowFewer = true)
+      .debug    (n => s"inserting ${n.size} entities", logger.debug(_) )
       .flatMap  { chunk => Stream.eval(chunk.combineAll.transact(xa)) }
-      .debug(n => s"inserted $n entities", logger.debug(_) )
       .foldMonoid
       .compile
       .toList
@@ -62,10 +71,25 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
     for
       _        <- createSchema
-      _        <- writeImporterProperties
       summary  <- rawImport
+      summary  <- runFeatures(summary)
     yield summary
   }
+
+  private def runFeatures(summary: Summary): F[Summary] =
+    features
+      .traverse { feature =>
+        feature.dataGenerator
+          .map { updateRun }
+          .map { _.transact(xa) }
+          .sequence
+          .map { _.map { summary.insert(feature.name) } }
+          .map { _.combineAll }
+      }
+      .map { _.combineAll }
+
+  private def insertOsmObject(summaryKey: String, sql: Fragment, summary: Summary) =
+    updateRun(sql).transact(xa).map { summary.insert(summaryKey) }
 
   private def handle(s: Summary)(e: OsmEntity): Free[ConnectionOp, Summary] = e match {
     case n: Node               => handleNode(n).map     { s.insert("nodes")      }
@@ -159,118 +183,20 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   //     .updateMany[Chunk](xs.map(Tuple.fromProductTyped))
 
   private lazy val createSchema = {
+    val allTables    = DefaultSchema.tables.toList ::: features.flatMap { _.tableDefinitions }
     val initSchema   = sql"""CREATE EXTENSION IF NOT EXISTS postgis"""
-    val dropTables   = DefaultSchema.tables.toList.map { t => Fragment.const(t.drop) }
-    val createTables =
-      DefaultSchema
-        .tables.toList
-        .map { t=> Fragment.const(t.create) } ::: List(
-          highways, highways_nodes,
-          railways, railways_nodes,
-          buildings, buildings_nodes,
-          protectedAreas, protectedAreas_nodes,
-        )
+    val dropTables   = allTables.map { t => Fragment.const(t.drop) }
+    val createTables = allTables.map { t=> Fragment.const(t.create) }
 
     (initSchema :: dropTables ::: createTables)
-      .map { _.update.run }
+      .map { updateRun }
       .sequence
       .as(())
       .transact(xa)
   }
 
-  private lazy val writeImporterProperties =
-    Update[(String, String)](sql"INSERT INTO importer_properties (key, value) VALUES (?, ?)".update.sql)
-      .updateMany(Seq("source" -> "TODO"))
-      .transact(xa)
-
-  private lazy val highways = sql"""
-    CREATE TABLE IF NOT EXISTS highways (
-      osm_id        bigint                    PRIMARY KEY,
-      name          varchar,
-      kind          varchar                   NOT NULL DEFAULT '',
-      footway       varchar,
-      sidewalk      varchar,
-      cycleway      varchar,
-      busway        varchar,
-      bicycle_road  boolean                   NOT NULL DEFAULT false,
-      surface       varchar,
-      nodes         bigint[],
-      tags          jsonb                     NOT NULL,
-      geom          geography(LineString, 4326)
-    )
-  """
-
-  private lazy val highways_nodes = sql"""
-    CREATE TABLE IF NOT EXISTS highways_nodes (
-      highway_id  bigint                    NOT NULL,
-      node_id     bigint                    NOT NULL,
-
-      FOREIGN KEY (highway_id)              REFERENCES highways(osm_id),
-      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
-    )
-  """
-
-  private lazy val railways = sql"""
-    CREATE TABLE IF NOT EXISTS railways (
-      osm_id        bigint                    PRIMARY KEY,
-      name          varchar,
-      official_name varchar,
-      operator      varchar,
-      nodes         bigint[],
-      tags          jsonb                     NOT NULL,
-      geom          geography(Polygon, 4326)
-    )
-  """
-
-  private lazy val railways_nodes = sql"""
-    CREATE TABLE IF NOT EXISTS railways_nodes (
-      railway_id  bigint                    NOT NULL,
-      node_id     bigint                    NOT NULL,
-
-      FOREIGN KEY (railway_id)              REFERENCES railways(osm_id),
-      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
-    )
-  """
-
-  private lazy val buildings = sql"""
-    CREATE TABLE IF NOT EXISTS buildings (
-      osm_id        bigint                    PRIMARY KEY,
-      name          varchar,
-      kind          varchar,
-      nodes         bigint[],
-      tags          jsonb                     NOT NULL,
-      geom          geography(Polygon, 4326)
-    )
-  """
-
-  private lazy val buildings_nodes = sql"""
-    CREATE TABLE IF NOT EXISTS buildings_nodes (
-      building_id  bigint                   NOT NULL,
-      node_id     bigint                    NOT NULL,
-
-      FOREIGN KEY (building_id)             REFERENCES buildings(osm_id),
-      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
-    )
-  """
-
-  private lazy val protectedAreas = sql"""
-    CREATE TABLE IF NOT EXISTS protected_areas (
-      osm_id        bigint                    PRIMARY KEY,
-      name          varchar,
-      kind          varchar,
-      nodes         bigint[],
-      tags          jsonb                     NOT NULL,
-      geom          geography(Polygon, 4326)
-    )
-  """
-
-  private lazy val protectedAreas_nodes = sql"""
-    CREATE TABLE IF NOT EXISTS protected_areas_nodes (
-      protected_area_id  bigint             NOT NULL,
-      node_id     bigint                    NOT NULL,
-
-      FOREIGN KEY (protected_area_id)       REFERENCES protected_areas(osm_id),
-      FOREIGN KEY (node_id)                 REFERENCES nodes(osm_id)
-    )
-  """
+  private def updateRun(sql: Fragment) = {
+    logger.debug(sql.update.sql)
+    sql.update.run
+  }
 }

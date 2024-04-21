@@ -36,7 +36,8 @@ object Schema {
           case Jsonb                 => "JSONB"
         },
         c.constraint.map {
-          case NotNull => "NOT NULL"
+          case NotNull(Some(default)) => s"NOT NULL DEFAULT $default"
+          case NotNull(_) => "NOT NULL"
           case PrimaryKey => "PRIMARY KEY"
         }.getOrElse("")
       )
@@ -73,7 +74,12 @@ case class ForeignKeyConstraint(column: String, references: (String, String)) ex
 
 sealed trait ColumnConstraint
 case object PrimaryKey extends ColumnConstraint
-case object NotNull extends ColumnConstraint
+
+object NotNull {
+  def apply(): NotNull = NotNull(Option.empty)
+  def apply(default: String): NotNull = NotNull(default.some)
+}
+case class NotNull(default: Option[String]) extends ColumnConstraint
 
 sealed trait Datatype
 case class  Geography(t: GeographyType, srid: Srid) extends Datatype
