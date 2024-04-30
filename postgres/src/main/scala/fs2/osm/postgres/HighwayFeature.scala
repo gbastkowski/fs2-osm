@@ -5,7 +5,7 @@ import doobie.*
 import doobie.implicits.*
 import doobie.util.fragment.Fragment
 
-class HighwayFeature extends Feature {
+object HighwayFeature extends Feature {
   override val name: String = "railways"
 
   override val tableDefinitions: List[Table] =

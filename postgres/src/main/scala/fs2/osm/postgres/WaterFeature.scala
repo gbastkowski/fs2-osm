@@ -4,7 +4,7 @@ import doobie.*
 import doobie.implicits.*
 import scala.io.Source
 
-class WaterFeature extends Feature {
+object WaterFeature extends Feature {
   override val name: String = "waters"
 
   override val tableDefinitions: List[Table] = List(
