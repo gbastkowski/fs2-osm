@@ -26,8 +26,8 @@ object DownloadFromGeofabrikTest extends IOSuite {
       .make(acquire) { c => IO(c.close()) }
       .map { conn => new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty)) }
 
-    // Resource
-      // .eval(IO(new PostgresExporter[IO](postgres.Config("jdbc:postgresql:fs2-osm", "gunnar.bastkowski", "").transactor)))
+    Resource
+      .eval(IO(new PostgresExporter[IO](postgres.Config("jdbc:postgresql:fs2-osm", "gunnar.bastkowski", "").transactor)))
   }
 
   test("download Bremen data from web and export to Postgres") { exporter =>
