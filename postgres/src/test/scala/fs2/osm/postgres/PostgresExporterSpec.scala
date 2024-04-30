@@ -75,8 +75,8 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       Summary(
         Map(
           "nodes"      -> SummaryItem(2, 0, 0),
-          "ways"       -> SummaryItem(1, 0, 0),
-          "relations"  -> SummaryItem(2, 0, 0)
+          "ways"       -> SummaryItem(3, 0, 0),
+          "relations"  -> SummaryItem(6, 0, 0)
         )
       ),
       summary

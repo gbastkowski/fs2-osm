@@ -19,28 +19,34 @@ object DefaultSchema extends Schema(
   Table("ways_nodes")
     .withColumns(
       Column("way_id",      BigInt,                         NotNull()),
-      Column("node_id",     BigInt,                         NotNull()))
+      Column("node_id",     BigInt,                         NotNull()),
+      Column("index",       postgres.Int,                   NotNull()))
     .withConstraints(
-      ForeignKeyConstraint("way_id",  "ways"  -> "osm_id"),
-      ForeignKeyConstraint("node_id", "nodes" -> "osm_id")),
+      // ForeignKeyConstraint("way_id",  "ways"  -> "osm_id"),
+      // ForeignKeyConstraint("node_id", "nodes" -> "osm_id")
+    ),
 
   Table("relations",
         Column("osm_id",      BigInt,                         PrimaryKey),
         Column("name",        VarChar),
+        Column("type",        VarChar),
         Column("tags",        Jsonb,                          NotNull())),
   Table("relations_nodes")
     .withColumns(
-      Column("relation_id", BigInt,                           NotNull()),
-      Column("node_id",     BigInt,                           NotNull()),
-      Column("role",        VarChar,                          NotNull()))
+      Column("relation_id", BigInt,                         NotNull()),
+      Column("node_id",     BigInt,                         NotNull()),
+      Column("index",       postgres.Int,                   NotNull()),
+      Column("role",        VarChar,                        NotNull()))
     .withConstraints(
       UniqueConstraint("relation_id", "node_id", "role"),
-      ForeignKeyConstraint("relation_id",  "relations"  -> "osm_id"),
-      ForeignKeyConstraint("node_id",      "nodes"      -> "osm_id")),
+      // ForeignKeyConstraint("relation_id",  "relations"  -> "osm_id"),
+      // ForeignKeyConstraint("node_id",      "nodes"      -> "osm_id")
+    ),
   Table("relations_ways")
     .withColumns(
       Column("relation_id", BigInt,                           NotNull()),
       Column("way_id",      BigInt,                           NotNull()),
+      Column("index",       postgres.Int,                     NotNull()),
       Column("role",        VarChar,                          NotNull()))
     .withConstraints(
       UniqueConstraint("relation_id", "way_id", "role")),
@@ -48,6 +54,7 @@ object DefaultSchema extends Schema(
     .withColumns(
       Column("parent_id",   BigInt),
       Column("child_id",    BigInt),
+      Column("index",       postgres.Int,                     NotNull()),
       Column("role",        VarChar))
     .withConstraints(
       UniqueConstraint("parent_id", "child_id", "role"))

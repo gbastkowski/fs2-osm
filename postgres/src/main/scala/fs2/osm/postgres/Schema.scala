@@ -33,6 +33,7 @@ object Schema {
           case BigInt                => "BIGINT"
           case BigIntArray           => "BIGINT[]"
           case Geography(tpe, srid)  => s"GEOGRAPHY($tpe, $srid)"
+          case Int                   => "INTEGER"
           case Jsonb                 => "JSONB"
         },
         c.constraint.map {
@@ -83,6 +84,7 @@ case class NotNull(default: Option[String]) extends ColumnConstraint
 
 sealed trait Datatype
 case class  Geography(t: GeographyType, srid: Srid) extends Datatype
+case object Int                                     extends Datatype
 case object BigInt                                  extends Datatype
 case object BigIntArray                             extends Datatype
 case object Jsonb                                   extends Datatype

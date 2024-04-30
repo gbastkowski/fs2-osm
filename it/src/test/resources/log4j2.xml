@@ -1,4 +1,4 @@
-<Configuration monitorInterval="5">
+<Configuration>
   <Appenders>
       <Console name="Out">
         <PatternLayout pattern="[%level] %c{1}  %m%n%ex"/>
@@ -6,7 +6,7 @@
   </Appenders>
 
   <Loggers>
-    <Logger name="fs2.osm.postgres" level="debug" additivity="false">
+    <Logger name="fs2.osm.postgres" level="info" additivity="false">
       <AppenderRef ref="Out"/>
     </Logger>
     <Root level="info">

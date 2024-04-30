@@ -1,4 +1,5 @@
-package fs2.osm.postgres
+package fs2.osm
+package postgres
 
 import doobie.util.fragment.Fragment
 import scala.io.Source

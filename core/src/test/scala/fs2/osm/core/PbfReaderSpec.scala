@@ -36,4 +36,21 @@ object PbfReaderSpec extends SimpleIOSuite {
       list(1)._2.toPrimitiveBlock.isSuccess
     )
   }
+
+  test("relation Dunger See") {
+    val entities = bremen.through(OsmEntityDecoder.pipe)
+
+    for relation <- entities.find(_.osmId == 2952L).compile.toList.map(_.head.asInstanceOf[Relation])
+    yield expect.all(
+      relation.relations.size == 4,
+      relation.relations(0).osmId == 293249683L,
+      relation.relations(0).role  == "inner",
+      relation.relations(1).osmId == 293249772L,
+      relation.relations(1).role  == "inner",
+      relation.relations(2).osmId == 11560506L,
+      relation.relations(2).role  == "inner",
+      relation.relations(3).osmId == 293249767L,
+      relation.relations(3).role  == "outer"
+    )
+  }
 }
