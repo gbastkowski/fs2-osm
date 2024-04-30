@@ -62,7 +62,6 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     )
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] = {
-
     val importEntities = entities
       .broadcastThrough(
         _.collect { case n: Node     => n } .chunkN(10000, allowFewer = true) .map { n => handleNodes(n)     .map { Summary().insert("nodes")     } },

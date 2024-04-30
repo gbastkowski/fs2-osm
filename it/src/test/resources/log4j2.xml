@@ -6,7 +6,7 @@
   </Appenders>
 
   <Loggers>
-    <Logger name="fs2.osm.postgres" level="info" additivity="false">
+    <Logger name="fs2.osm.postgres" level="debug" additivity="false">
       <AppenderRef ref="Out"/>
     </Logger>
     <Root level="info">
