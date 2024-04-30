@@ -4,7 +4,7 @@ import doobie.implicits.*
 import doobie.util.fragment.Fragment
 import scala.io.Source
 
-class ImporterPropertiesFeature extends Feature {
+object ImporterPropertiesFeature extends Feature {
   override val name: String = "importer_properties"
 
   override val tableDefinitions: List[Table] =

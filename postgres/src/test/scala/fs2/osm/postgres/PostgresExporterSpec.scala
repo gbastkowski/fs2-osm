@@ -67,19 +67,13 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       )
     )
 
-    given Eq[Summary] = _ == _
     for
       either <- exporter.run(entities).attempt
       summary = either.toTry.get
-    yield expect.eql(
-      Summary(
-        Map(
-          "nodes"      -> SummaryItem(2, 0, 0),
-          "ways"       -> SummaryItem(3, 0, 0),
-          "relations"  -> SummaryItem(6, 0, 0)
-        )
-      ),
-      summary
+    yield expect.all(
+      summary.get("nodes")      == SummaryItem(2, 0, 0),
+      summary.get("ways")       == SummaryItem(3, 0, 0),
+      summary.get("relations")  == SummaryItem(6, 0, 0)
     )
   }
 

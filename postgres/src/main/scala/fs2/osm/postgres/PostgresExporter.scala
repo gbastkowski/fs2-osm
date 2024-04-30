@@ -53,9 +53,9 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
   private val features =
     List(
-      ImporterPropertiesFeature(),
-      HighwayFeature(),
-      WaterFeature(),
+      ImporterPropertiesFeature,
+      HighwayFeature,
+      WaterFeature,
       BuildingFeature(),
       RailwayFeature(),
       ProtectedAreaFeature()
@@ -71,19 +71,19 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
 
     for
       _        <- createSchema
-      summary  <- importEntities.foldMonoid.compile.toList.map { _.combineAll }
-      summary  <- runFeatures(summary)
-    yield summary
+      summary1 <- importEntities.foldMonoid.compile.toList.map { _.combineAll }
+      summary2 <- runFeatures
+    yield summary1 + summary2
   }
 
-  private def runFeatures(summary: Summary): F[Summary] =
+  private def runFeatures: F[Summary] =
     features
       .traverse { feature =>
         feature.dataGenerator
           .map { updateRun }
           .map { _.transact(xa) }
           .sequence
-          .map { _.map { summary.insert(feature.name) } }
+          .map { _.map { Summary().insert(feature.name) } }
           .map { _.combineAll }
       }
       .map { _.combineAll }
