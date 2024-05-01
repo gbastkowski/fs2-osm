@@ -19,9 +19,9 @@ case class Summary(operations: Map[String, SummaryItem] = Map.empty) {
       }
     )
 
-  def insert(key: String)(n: Int): Summary = updateItem(key, _.insert(n))
-  def update(key: String)(n: Int): Summary = updateItem(key, _.update(n))
-  def delete(key: String)(n: Int): Summary = updateItem(key, _.delete(n))
+  def insert(key: String, n: Int): Summary = updateItem(key, _.insert(n))
+  def update(key: String, n: Int): Summary = updateItem(key, _.update(n))
+  def delete(key: String, n: Int): Summary = updateItem(key, _.delete(n))
 
   private def updateItem(key: String, transform: SummaryItem => SummaryItem) =
     copy(operations = operations + (key -> transform(operations.getOrElse(key, SummaryItem()))))
