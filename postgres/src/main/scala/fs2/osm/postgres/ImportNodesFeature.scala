@@ -9,13 +9,12 @@ import fs2.osm.core.Node
 import io.circe.*
 import io.circe.syntax.*
 
-import scala.io.Source
 import cats.free.Free
 import doobie.free.connection.ConnectionOp
+import doobie.free.ConnectionIO
+import scala.io.Source
 
 object ImportNodesFeature extends Feature {
-  override val name: String = "nodes"
-
   override val tableDefinitions: List[Table] = List(
     Table("nodes")
       .withColumns(
@@ -25,29 +24,29 @@ object ImportNodesFeature extends Feature {
         Column("tags",    Jsonb,                    NotNull()))
   )
 
-  override val dataGenerator: List[Fragment] = List(
-    sql"INSERT INTO nodes (osm_id, name, geom, tags) VALUES (?, ?, ?, ?)"
+  override val dataGenerator: List[(String, ConnectionIO[Int])] = List(
+    "nodes" -> logAndRun(sql"INSERT INTO nodes (osm_id, name, geom, tags) VALUES (?, ?, ?, ?)")
   )
 }
 
 class ImportNodesFeature[F[_]: Async](nodes: Stream[F, Node]) {
-  def run: Stream[F, Free[ConnectionOp, scala.Int]] =
-    nodes
-      .chunkN(10000, allowFewer = true)
-      .map { n => handleNodes(n) }
+  // def run: Stream[F, Free[ConnectionOp, scala.Int]] =
+  //   nodes
+  //     .chunkN(10000, allowFewer = true)
+  //     .map { n => handleNodes(n) }
 
-  private def handleNodes(chunk: Chunk[Node]) = {
-    val tuples = chunk.map { n =>
-      (
-        n.osmId,
-        n.tags.get("name"),
-        org.postgis.Point(n.coordinate.longitude, n.coordinate.latitude),
-        toJson(n.tags)
-      )
-    }
-    Update[(Long, Option[String], org.postgis.Point, Json)](ImportNodesFeature.dataGenerator.head.update.sql)
-      .updateMany(tuples)
-  }
+  // private def handleNodes(chunk: Chunk[Node]) = {
+  //   val tuples = chunk.map { n =>
+  //     (
+  //       n.osmId,
+  //       n.tags.get("name"),
+  //       org.postgis.Point(n.coordinate.longitude, n.coordinate.latitude),
+  //       toJson(n.tags)
+  //     )
+  //   }
+  //   Update[(Long, Option[String], org.postgis.Point, Json)](ImportNodesFeature.dataGenerator.head.update.sql)
+  //     .updateMany(tuples)
+  // }
 
-  private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
+  // private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
 }

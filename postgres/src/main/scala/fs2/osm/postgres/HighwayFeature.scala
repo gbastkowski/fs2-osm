@@ -6,8 +6,6 @@ import doobie.implicits.*
 import doobie.util.fragment.Fragment
 
 object HighwayFeature extends Feature {
-  override val name: String = "railways"
-
   override val tableDefinitions: List[Table] =
     List(
       Table("highways",
@@ -28,30 +26,29 @@ object HighwayFeature extends Feature {
             Column("node_id", BigInt, NotNull())),
     )
 
-  override def dataGenerator: List[Fragment] =
-    List(
-      sql"""
-        INSERT INTO highways (osm_id, name, kind, footway, sidewalk, cycleway, busway, bicycle_road, surface, geom, tags)
-        SELECT                osm_id, name, kind, footway, sidewalk, cycleway, busway, bicycle_road, surface, geom, tags
-        FROM (
-            SELECT
-                ways.osm_id AS osm_id,
-                ways.name   AS name,
-                ways.tags->>'highway' AS kind,
-                ways.tags->>'footway' AS footway,
-                ways.tags->>'sidewalk' AS sidewalk,
-                ways.tags->>'cycleway' AS cycleway,
-                ways.tags->>'busway' AS busway,
-                ways.tags->>'bicycle_road' IS NOT NULL AND ways.tags->>'bicycle_road' = 'yes' AS bicycle_road,
-                ways.tags->>'surface' AS surface,
-                ST_MakeLine(array_agg(nodes.geom)::geometry[]) AS geom,
-                ways.tags AS tags
-            FROM ways
-            CROSS JOIN LATERAL unnest(ways.nodes) AS node_id
-            INNER JOIN nodes ON nodes.osm_id = node_id
-            WHERE ways.tags->>'highway' IS NOT NULL
-            GROUP BY ways.osm_id
-        ) AS grouped_nodes
-      """
-    )
+  override def dataGenerator: List[(String, ConnectionIO[Int])] = List(
+    "highways" -> logAndRun(sql"""
+      INSERT INTO highways (osm_id, name, kind, footway, sidewalk, cycleway, busway, bicycle_road, surface, geom, tags)
+      SELECT                osm_id, name, kind, footway, sidewalk, cycleway, busway, bicycle_road, surface, geom, tags
+      FROM (
+          SELECT
+              ways.osm_id AS osm_id,
+              ways.name   AS name,
+              ways.tags->>'highway' AS kind,
+              ways.tags->>'footway' AS footway,
+              ways.tags->>'sidewalk' AS sidewalk,
+              ways.tags->>'cycleway' AS cycleway,
+              ways.tags->>'busway' AS busway,
+              ways.tags->>'bicycle_road' IS NOT NULL AND ways.tags->>'bicycle_road' = 'yes' AS bicycle_road,
+              ways.tags->>'surface' AS surface,
+              ST_MakeLine(array_agg(nodes.geom)::geometry[]) AS geom,
+              ways.tags AS tags
+          FROM ways
+          CROSS JOIN LATERAL unnest(ways.nodes) AS node_id
+          INNER JOIN nodes ON nodes.osm_id = node_id
+          WHERE ways.tags->>'highway' IS NOT NULL
+          GROUP BY ways.osm_id
+      ) AS grouped_nodes
+    """)
+  )
 }

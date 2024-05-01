@@ -1,11 +1,10 @@
 package fs2.osm.postgres
 
+import doobie.free.ConnectionIO
 import doobie.util.fragment.Fragment
 import scala.io.Source
 
 class ProtectedAreaFeature extends Feature {
-  override val name: String = "protected areas"
-
   override val tableDefinitions: List[Table] =
     List(
       Table("protected_areas",
@@ -20,7 +19,7 @@ class ProtectedAreaFeature extends Feature {
             Column("node_id", BigInt, NotNull())),
     )
 
-  override def dataGenerator: List[Fragment] = List(
-    Fragment.const(Source.fromURL(getClass.getResource("/insert-into-protected-areas.sql")).mkString)
+  override def dataGenerator: List[(String, ConnectionIO[Int])] = List(
+    "protected areas" -> logAndRun(getClass.getResource("/insert-into-protected-areas.sql"))
   )
 }

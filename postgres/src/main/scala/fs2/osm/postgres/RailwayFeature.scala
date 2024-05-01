@@ -1,12 +1,11 @@
 package fs2.osm
 package postgres
 
+import doobie.free.ConnectionIO
 import doobie.util.fragment.Fragment
 import scala.io.Source
 
 class RailwayFeature extends Feature {
-  override val name: String = "railways"
-
   override val tableDefinitions: List[Table] = List(
     Table("railways",
           Column("osm_id", BigInt, PrimaryKey),
@@ -20,7 +19,7 @@ class RailwayFeature extends Feature {
           Column("node_id", BigInt, NotNull()))
   )
 
-  override def dataGenerator: List[Fragment] = List(
-    Fragment.const(Source.fromURL(getClass.getResource("/insert-into-railways.sql")).mkString)
+  override def dataGenerator: List[(String, ConnectionIO[Int])] = List(
+    "railways" -> logAndRun(getClass.getResource("/insert-into-railways.sql"))
   )
 }

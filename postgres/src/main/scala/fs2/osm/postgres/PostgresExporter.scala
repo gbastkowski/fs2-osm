@@ -76,16 +76,13 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     yield summary1 + summary2
   }
 
-  private def runFeatures: F[Summary] =
-    features
-      .traverse { feature =>
-        feature.dataGenerator
-          .map { updateRun }
-          .map { _.transact(xa) }
-          .sequence
-          .map { _.map { Summary().insert(feature.name) } }
-          .map { _.combineAll }
-      }
+  private def runFeatures: F[Summary] = features traverse { runFeature } map { _.combineAll }
+
+  private def runFeature(feature: Feature) =
+    feature
+      .run(xa)
+      .map { _.map { (key, value) => Summary().insert(key)(value) } }
+      .sequence
       .map { _.combineAll }
 
   private def handleNodes(chunk: Chunk[Node]) = {
@@ -167,7 +164,7 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
     val allTables    = DefaultSchema.tables.toList ::: features.flatMap { _.tableDefinitions }
     val initSchema   = sql"""CREATE EXTENSION IF NOT EXISTS postgis"""
     val dropTables   = allTables.map { t => Fragment.const(t.drop) }
-    val createTables = allTables.map { t=> Fragment.const(t.create) }
+    val createTables = allTables.map { t => Fragment.const(t.create) }
 
     (initSchema :: dropTables ::: createTables)
       .map { updateRun }

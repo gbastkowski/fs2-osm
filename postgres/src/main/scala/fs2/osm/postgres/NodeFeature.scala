@@ -6,8 +6,6 @@ import doobie.implicits.*
 import doobie.util.fragment.Fragment
 
 class NodeFeature extends Feature {
-  override val name: String = "nodes"
-
   override val tableDefinitions: List[Table] = List(
     Table("nodes")
       .withColumns(
@@ -17,10 +15,10 @@ class NodeFeature extends Feature {
         Column("tags",        Jsonb,                          NotNull()))
   )
 
-  override def dataGenerator: List[Fragment] = List(
-    sql"""
+  override def dataGenerator = List(
+    "nodes" -> logAndRun(sql"""
       INSERT INTO nodes (osm_id, name, geom, tags)
       VALUES            (?, ?, ?, ?)
-    """
+    """)
   )
 }
