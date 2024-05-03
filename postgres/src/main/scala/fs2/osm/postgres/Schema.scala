@@ -91,7 +91,9 @@ case object Jsonb                                   extends Datatype
 case object VarChar                                 extends Datatype
 
 sealed trait GeographyType
+case object GeometryCollection                      extends GeographyType
 case object LineString                              extends GeographyType
+case object MultiLineString                         extends GeographyType
 case object Point                                   extends GeographyType
 case object Polygon                                 extends GeographyType
 

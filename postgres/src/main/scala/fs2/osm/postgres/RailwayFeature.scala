@@ -5,7 +5,7 @@ import doobie.free.ConnectionIO
 import doobie.util.fragment.Fragment
 import scala.io.Source
 
-class RailwayFeature extends Feature {
+object RailwayFeature extends Feature {
   override val tableDefinitions: List[Table] = List(
     Table("railways",
           Column("osm_id", BigInt, PrimaryKey),

@@ -54,11 +54,12 @@ class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
   private val features =
     List(
       ImporterPropertiesFeature,
+      OsmLineFeature,
       HighwayFeature,
       WaterFeature,
-      BuildingFeature(),
-      RailwayFeature(),
-      ProtectedAreaFeature()
+      BuildingFeature,
+      RailwayFeature,
+      ProtectedAreaFeature
     )
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =

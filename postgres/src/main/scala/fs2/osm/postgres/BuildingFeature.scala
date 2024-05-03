@@ -4,7 +4,7 @@ import doobie.*
 import doobie.implicits.*
 import scala.io.Source
 
-class BuildingFeature extends Feature {
+object BuildingFeature extends Feature {
   override val tableDefinitions: List[Table] = List(
     Table("buildings",
           Column("osm_id", BigInt, PrimaryKey),

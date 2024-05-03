@@ -14,7 +14,6 @@ import doobie.postgres.pgisgeographyimplicits.*
 import doobie.postgres.pgisimplicits.*
 import fs2.{Chunk, Pipe}
 import io.circe.Json
-import io.circe.syntax.*
 
 object RelationImporter {
   def apply[F[_]: Async](xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
@@ -30,7 +29,7 @@ object RelationImporter {
         relation.osmId,
         relation.tags.get("name"),
         relation.tags.get("type"),
-        toJson(relation.tags)
+        relation.tags.toJson
       )
     }
     val relationsWithIndex = chunk.toList.flatMap { relation => relation.relations.zipWithIndex.map { (relation.osmId, _, _) } }
@@ -38,7 +37,7 @@ object RelationImporter {
     Seq(
       Update[(Long, Option[String], Option[String], Json)](
         """
-          INSERT INTO relations           (osm_id, name,  type,          tags)
+          INSERT INTO relations           (osm_id, name, type, tags)
           VALUES                          (?, ?, ?, ?)
         """
       ).updateMany(relations),
@@ -66,5 +65,12 @@ object RelationImporter {
     ).combineAll
   }
 
-  private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
+  def find(maintype: String, subtype: String) =
+    sql"""
+      SELECT  osm_id, name, tags
+      FROM    relations
+      WHERE   relations.type = '$maintype'
+      AND     relations.tags->>'$maintype' = '$subtype'
+    """
+      .query[(Long, Option[String], Map[String, String])]
 }
