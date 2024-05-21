@@ -11,9 +11,7 @@ permissions:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: Set up JDK 11
@@ -23,6 +21,8 @@ jobs:
         distribution: 'temurin'
         cache: 'sbt'
     - name: Run tests
+      env:
+        CI: "true"
       run: sbt test
       # Optional: This step uploads information to the GitHub dependency graph and unblocking Dependabot alerts for the repository
     # - name: Upload dependency graph
