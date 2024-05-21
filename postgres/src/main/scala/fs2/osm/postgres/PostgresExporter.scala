@@ -28,39 +28,8 @@ import doobie.util.fragment.Fragment
 import fs2.Pull
 import fs2.Stream.ToPull
 
-object PostgresExporter {
-  def apply[F[_]: Async]: F[PostgresExporter[F]] =
-    ConfigSource
-      .default
-      .at("db")
-      .loadF[F, Config]()
-      .map { config => apply(config) }
-
-  def apply[F[_]: Async](config: Config): PostgresExporter[F] =
-    new PostgresExporter[F](
-      Transactor.fromDriverManager[F](
-        driver      = "org.postgresql.Driver",
-        url         = config.jdbcUrl,
-        user        = config.username,
-        password    = config.password,
-        logHandler  = None
-      )
-    )
-}
-
-class PostgresExporter[F[_]: Async](xa: Transactor[F]) extends Logging {
+class PostgresExporter[F[_]: Async](features: List[Feature], xa: Transactor[F]) extends Logging {
   import Schema.*
-
-  private val features =
-    List(
-      ImporterPropertiesFeature,
-      OsmLineFeature,
-      HighwayFeature,
-      WaterFeature,
-      BuildingFeature,
-      RailwayFeature,
-      ProtectedAreaFeature
-    )
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =
     for

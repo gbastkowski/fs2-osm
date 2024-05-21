@@ -22,7 +22,9 @@ object NodeImporter {
     .collect { case n: Node     => n }
     .chunkN(10000, allowFewer = true)
     .map { handleNodes }
-    .evalMap { _.transact(xa) }
+    .parEvalMap(20) { _.transact(xa) }
+    // .evalMap { _.transact(xa) }
+    .foldMonoid
     .map { "nodes" -> _ }
 
   private def handleNodes(chunk: Chunk[Node]) = {

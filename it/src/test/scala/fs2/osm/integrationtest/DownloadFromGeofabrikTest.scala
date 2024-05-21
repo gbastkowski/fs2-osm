@@ -15,6 +15,19 @@ import sttp.model.Uri
 import weaver.*
 
 object DownloadFromGeofabrikTest extends IOSuite {
+  private val germany = uri"http://download.geofabrik.de/europe/germany-latest.osm.pbf"
+  private val bremen  = uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf"
+
+  private val features = List(
+    ImporterPropertiesFeature,
+    // OsmLineFeature,
+    // HighwayFeature,
+    // WaterFeature,
+    // BuildingFeature,
+    // RailwayFeature,
+    // ProtectedAreaFeature
+  )
+
   override type Res = PostgresExporter[IO]
   override def sharedResource: Resource[IO, Res] = {
     val acquire = IO {
@@ -24,16 +37,23 @@ object DownloadFromGeofabrikTest extends IOSuite {
 
     Resource
       .make(acquire) { c => IO(c.close()) }
-      .map { conn => new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty)) }
+      .map { conn => new PostgresExporter[IO](features, Transactor.fromConnection(conn, logHandler = Option.empty)) }
 
-    // Resource
-    //   .eval(IO(new PostgresExporter[IO](postgres.Config("jdbc:postgresql:fs2-osm", "gunnar.bastkowski", "").transactor)))
+    Resource
+      .eval(IO(new PostgresExporter[IO](features, postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)))
   }
 
   test("download Bremen data from web and export to Postgres") { exporter =>
-    val bytes = Downloader[IO](uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf")
+    val bytes   = Downloader[IO](germany)
+    val stream  = bytes.through(OsmEntityDecoder.pipe)
     for
-      summary  <- exporter run (bytes through OsmEntityDecoder.pipe)
+
+      cancel   <- Deferred[IO, Either[Throwable, Unit]]
+      _        <- (IO.async_[Unit] { cb =>
+                    sun.misc.Signal.handle(new sun.misc.Signal("INT"),  _ => cb(Right(())))
+                    sun.misc.Signal.handle(new sun.misc.Signal("TERM"), _ => cb(Right(())))
+                  } *> cancel.complete(Right(()))).start
+      summary  <- exporter.run(stream.interruptWhen(cancel))
     yield expect.all(
       summary.get("nodes").inserted > 10000,
       summary.get("ways").inserted > 10000,

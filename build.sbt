@@ -39,7 +39,10 @@ lazy val app = project
     buildInfoKeys          := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage       := "fs2.osm.app",
     git.useGitDescribe     := true,
-    libraryDependencies   ++= scopt)
+    // javaAgents             += "io.opentelemetry.javaagent"  % "opentelemetry-javaagent" % Versions.opentelemetry,
+    javaOptions            += "-Dotel.javaagent.debug=true",
+    libraryDependencies   ++= opentelemetry                         ++
+                              scopt                                 )
 
 lazy val root = project.in(file("."))
   .aggregate(app, core, it, postgres)
@@ -47,5 +50,5 @@ lazy val root = project.in(file("."))
 lazy val commonSettings = Seq(
   libraryDependencies     ++= weaver            .map  { _ % Test },
   testFrameworks           += new TestFramework("weaver.framework.CatsEffect"),
-  run / fork               := true,
+  run  / fork              := true,
   test / fork              := true)
