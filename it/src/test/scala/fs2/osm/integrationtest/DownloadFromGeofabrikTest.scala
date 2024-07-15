@@ -9,9 +9,11 @@ import fs2.osm.core.*
 import java.sql.Connection
 import javax.sql.DataSource
 import org.testcontainers.utility.DockerImageName
+import org.typelevel.otel4s.oteljava.OtelJava
 import postgres.*
 import sttp.client3.UriContext
 import sttp.model.Uri
+import telemetry.Telemetry
 import weaver.*
 
 object DownloadFromGeofabrikTest extends IOSuite {
@@ -29,29 +31,30 @@ object DownloadFromGeofabrikTest extends IOSuite {
   )
 
   override type Res = PostgresExporter[IO]
-  override def sharedResource: Resource[IO, Res] = {
-    if (sys.env.get("CI").nonEmpty) {
-      val acquire = IO {
-        val embedded = EmbeddedPostgres.builder().setImage(DockerImageName.parse("postgis/postgis")).start()
-        embedded.getPostgresDatabase().getConnection()
-      }
-
-      Resource
-        .make(acquire) { c => IO(c.close()) }
-        .map { conn => new PostgresExporter[IO](features, Transactor.fromConnection(conn, logHandler = Option.empty)) }
-    } else {
-      Resource.eval(
-        IO {
-          new PostgresExporter[IO](
-            features,
-            postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)
-        }
-      )
-    }
-  }
+  override def sharedResource: Resource[IO, Res] =
+    for
+      otel       <- OtelJava.autoConfigured[IO]()
+      meter      <- Resource.eval(otel.meterProvider.get("test-import"))
+      telemetry  <- Telemetry("name", "version", source = "test-import")
+      xa         <- if   sys.env.get("CI").isEmpty
+                    then Resource.pure(postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)
+                    else
+                      val connection = IO {
+                        EmbeddedPostgres
+                          .builder()
+                          .setImage(DockerImageName.parse("postgis/postgis"))
+                          .start()
+                          .getPostgresDatabase()
+                          .getConnection()
+                      }
+                      Resource
+                        .make { connection } { c => IO(c.close())}
+                        .map  { conn => Transactor.fromConnection(conn, logHandler = Option.empty) }
+    yield
+      new PostgresExporter[IO](features, telemetry, xa)
 
   test("download Bremen data from web and export to Postgres") { exporter =>
-    val bytes   = Downloader[IO](germany)
+    val bytes   = Downloader[IO](bremen)
     val stream  = bytes.through(OsmEntityDecoder.pipe)
     for
 

@@ -14,13 +14,15 @@ import doobie.postgres.pgisgeographyimplicits.*
 import doobie.postgres.pgisimplicits.*
 import fs2.{Chunk, Pipe}
 import io.circe.Json
+import org.typelevel.otel4s.metrics.Counter
 
-object RelationImporter {
-  def apply[F[_]: Async](xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
+object RelationImporter:
+  def apply[F[_]: Async](counter: Long => F[Unit], xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
     .collect { case n: Relation => n }
     .chunkN(10000, allowFewer = true)
     .map { handleRelations }
     .evalMap { _.transact(xa) }
+    .evalTap { counter(_) }
     .map { "relations" -> _ }
 
   private def handleRelations(chunk: Chunk[Relation]) = {
@@ -73,4 +75,3 @@ object RelationImporter {
       AND     relations.tags->>'$maintype' = '$subtype'
     """
       .query[(Long, Option[String], Map[String, String])]
-}

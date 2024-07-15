@@ -1,6 +1,6 @@
 import Dependencies._
 
-ThisBuild / scalaVersion   := "3.3.1"
+ThisBuild / scalaVersion   := "3.4.2"
 Global / excludeLintKeys   := Set(fork) // remove sbt warning
 
 lazy val core = project
@@ -8,9 +8,9 @@ lazy val core = project
   .settings(commonSettings)
   .settings(
     git.useGitDescribe     := true,
-    libraryDependencies   ++= fs2                                   ++
-                              logging                               ++
-                              sttp                                  ,
+    libraryDependencies   ++= fs2                                     ++
+                              logging                                 ++
+                              sttp                                    ,
     Compile / PB.targets   := Seq(scalapb.gen(grpc = false) -> (Compile / sourceManaged).value))
 
 lazy val postgres = project
@@ -19,17 +19,20 @@ lazy val postgres = project
   .settings(commonSettings)
   .settings(
     git.useGitDescribe     := true,
-    libraryDependencies   ++= pureconfig                            ++
-                              doobie                                ++
-                              embeddedPostgres  .map  { _ % Test }  ++
-                              fs2                                   ++
-                              logging                               )
+    libraryDependencies   ++= pureconfig                              ++
+                              doobie                                  ++
+                              embeddedPostgres  .map  { _ % Test }    ++
+                              fs2                                     ++
+                              logging                                 ++
+                              otelCore                                ++
+                              otelJava                                )
 
 lazy val it = project
   .dependsOn(core, postgres)
   .settings(commonSettings)
   .settings(
-    libraryDependencies   ++= embeddedPostgres  .map  { _ % Test }  )
+    libraryDependencies   ++= embeddedPostgres  .map  { _ % Test }    ++
+                              otelJava          .map  { _ % Test }    )
 
 lazy val app = project
   .enablePlugins(BuildInfoPlugin, GitVersioning)
@@ -41,10 +44,12 @@ lazy val app = project
     git.useGitDescribe     := true,
     // javaAgents             += "io.opentelemetry.javaagent"  % "opentelemetry-javaagent" % Versions.opentelemetry,
     javaOptions            += "-Dotel.javaagent.debug=true",
-    libraryDependencies   ++= opentelemetry                         ++
-                              scopt                                 )
+    libraryDependencies   ++= otelJava                                ++
+                              scopt                                   ,
+    name                   := "fs2-osm"                               )
 
-lazy val root = project.in(file("."))
+lazy val root = project
+  .in(file("."))
   .aggregate(app, core, it, postgres)
 
 lazy val commonSettings = Seq(

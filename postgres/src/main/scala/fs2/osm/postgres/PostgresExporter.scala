@@ -15,34 +15,40 @@ import doobie.postgres.circe.json.implicits.*
 import doobie.postgres.implicits.*
 import doobie.postgres.pgisgeographyimplicits.*
 import doobie.postgres.pgisimplicits.*
+import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
+import fs2.Pull
+import fs2.Stream.ToPull
 import fs2.{Chunk, Pipe, Stream}
+import fs2.osm.telemetry.Telemetry
 import io.circe.*
 import io.circe.syntax.*
 import org.apache.logging.log4j.scala.Logging
 import org.postgis.Point
+import org.typelevel.otel4s.metrics.Meter
 import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
-import doobie.util.fragment.Fragment
-import fs2.Pull
-import fs2.Stream.ToPull
+import org.typelevel.otel4s.Attribute
 
-class PostgresExporter[F[_]: Async](features: List[Feature], xa: Transactor[F]) extends Logging {
+class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging:
   import Schema.*
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =
     for
-      _        <- createSchema
-      summary1 <- entities
-                    .broadcastThrough(
-                      NodeImporter(xa),
-                      WayImporter(xa),
-                      RelationImporter(xa))
-                    .map { Summary().insert(_, _) }
-                    .foldMonoid
-                    .compile.toList.map { _.combineAll }
-      summary2 <- runFeatures
+      _                <- createSchema
+      nodeCounter      <- telemetry.counter[Long]("importer", "nodes")
+      wayCounter       <- telemetry.counter[Long]("importer", "ways")
+      relationCounter  <- telemetry.counter[Long]("importer", "relations")
+      nodeImporter      = NodeImporter(n => nodeCounter.add(n, telemetry.attributes), xa)
+      wayImporter       = WayImporter(n => wayCounter.add(n, telemetry.attributes), xa)
+      relationImporter  = RelationImporter(n => relationCounter.add(n, telemetry.attributes), xa)
+      summary1         <- entities
+                            .broadcastThrough(nodeImporter, wayImporter, relationImporter)
+                            .map { Summary().insert(_, _) }
+                            .foldMonoid
+                            .compile.toList.map { _.combineAll }
+      summary2         <- runFeatures
     yield summary1 + summary2
 
   private def runFeatures: F[Summary] = features traverse { runFeature } map { _.combineAll }
@@ -54,7 +60,7 @@ class PostgresExporter[F[_]: Async](features: List[Feature], xa: Transactor[F]) 
       .sequence
       .map { _.combineAll }
 
-  private lazy val createSchema = {
+  private lazy val createSchema =
     val allTables    = DefaultSchema.tables.toList ::: features.flatMap { _.tableDefinitions }
     val initSchema   = sql"""CREATE EXTENSION IF NOT EXISTS postgis"""
     val dropTables   = allTables.map { t => Fragment.const(t.drop) }
@@ -65,10 +71,7 @@ class PostgresExporter[F[_]: Async](features: List[Feature], xa: Transactor[F]) 
       .sequence
       .as(())
       .transact(xa)
-  }
 
-  private def updateRun(sql: Fragment) = {
+  private def updateRun(sql: Fragment) =
     logger.debug(sql.update.sql)
     sql.update.run
-  }
-}

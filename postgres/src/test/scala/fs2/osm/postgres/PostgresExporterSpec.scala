@@ -24,8 +24,11 @@ object PostgresExporterSpec extends IOSuite with Checkers {
         .getPostgresDatabase()
         .getConnection()
     }
-    for conn <- Resource.make(acquire) { c => IO(c.close())}
-    yield new PostgresExporter[IO](Transactor.fromConnection(conn, logHandler = Option.empty))
+    for {
+      conn <- Resource.make(acquire) { c => IO(c.close())}
+    } yield new PostgresExporter[IO](
+      Transactor.fromConnection(features = Nil, conn, logHandler = Option.empty)
+    )
   }
 
   test("insert entities") { exporter =>
