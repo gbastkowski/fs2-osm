@@ -1,10 +1,16 @@
 #+title: Readme
 
-* FS2-OSM
 An OpenStreetMap PBF file parser in Scala based on [[https://typelevel.org/cats-effect/][cats-effect]] and [[https://fs2.io/#/][fs2]].
 
-* SQL Queries
-#+name count-nodes :engine postgres :database fs2-osm
-#+begin_src sql
-SELECT count(*) FROM nodes
-#+end_src
+* Getting Started
+Install scala and sbt.
+For the tests, you also need Docker.
+
+run ~sbt test~.
+
+This should build the project and run some tests.
+
+* TODO Deployment
+* TODO Features
+* TODO Contributing
+* TODO License
