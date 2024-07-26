@@ -18,8 +18,7 @@ import doobie.free.connection.ConnectionOp
 import cats.free.Free
 
 object AdministrativeBoundaryFeature extends Feature {
-  // osmId, name, adminLevel
-  type AdministrativeBoundary = (Long, Option[String], Option[Int], org.postgis.MultiLineString, Map[String, String])
+  type AdministrativeBoundary = (Long, Option[String], Option[Int], MultiLineString, Map[String, String])
 
   override val tableDefinitions: List[Table] = List(
     Table("administrative_boundaries",
@@ -33,7 +32,7 @@ object AdministrativeBoundaryFeature extends Feature {
   override val dataGenerator: List[(String, ConnectionIO[Int])] = List(
     "administrative_boundaries" -> logAndRun(
       sql"""
-        INSERT INTO administrative_boundaries (osm_id, name, admin_level, geom,                 tags)
+        INSERT INTO administrative_boundaries (osm_id, name, admin_level, geom,          tags)
         SELECT                                 osm_id, name, admin_level, ST_Make(geom), tags
         FROM (
             SELECT  ways.osm_id                                       AS osm_id,
@@ -44,7 +43,7 @@ object AdministrativeBoundaryFeature extends Feature {
             FROM                ways
             CROSS JOIN LATERAL  unnest(ways.nodes)                    AS node_id
             INNER JOIN          nodes                                 ON nodes.osm_id = node_id
-            WHERE               ways.tags->>'natural' = 'water'
+            WHERE               ways.tags->>'boundary' = 'administrative'
             GROUP BY            ways.osm_id
         ) AS grouped_nodes
         WHERE                   ST_IsClosed(geom)

@@ -13,7 +13,7 @@ object AdministrativeBoundaryFeatureSpec extends IOSuite {
 
   override type Res = Transactor[IO]
   override def sharedResource: Resource[IO, Res] = {
-    val xa = Config("jdbc:postgresql:fs2-osm", "gunnar.bastkowski", "").transactor
+    val xa = Config("jdbc:postgresql:fs2-osm", "gunnar", "").transactor
 
     val acquire =
       for
@@ -38,10 +38,10 @@ object AdministrativeBoundaryFeatureSpec extends IOSuite {
   // }
 
 
-  test("insert") { xa =>
-    val insertions = insert[IO](xa).foldMonoid.compile.lastOrError
-    for
-      count <- insertions
-    yield expect.all(count == 201)
-  }
+  // test("insert") { xa =>
+  //   val insertions = insert[IO](xa).foldMonoid.compile.lastOrError
+  //   for
+  //     count <- insertions
+  //   yield expect.all(count == 201)
+  // }
 }

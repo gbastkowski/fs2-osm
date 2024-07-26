@@ -15,13 +15,12 @@ import scopt.OParser
 import sttp.client3.UriContext
 import sttp.model.Uri
 
-object Main extends IOApp:
+object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] =
     val resources = for
       config       <- Resource.eval(IO.fromOption(parseArgs(args)) { new IllegalArgumentException("Invalid arguments") })
-      telemetrySdk <- Telemetry.apply[IO](BuildInfo.name, BuildInfo.version, config.uri.toString)
+      telemetrySdk <- Telemetry[IO](BuildInfo.name, BuildInfo.version, config.uri.toString)
     yield (config, telemetrySdk)
-
     resources.use { program }
 
   private val features = List(
@@ -31,8 +30,7 @@ object Main extends IOApp:
     postgres.WaterFeature,
     postgres.BuildingFeature,
     postgres.RailwayFeature,
-    postgres.ProtectedAreaFeature
-  )
+    postgres.ProtectedAreaFeature)
 
   private def parseArgs(args: List[String]): Option[Config] =
     val builder = OParser.builder[Config]
@@ -59,8 +57,7 @@ object Main extends IOApp:
         .text("password for database connection"),
       arg[String]("<URL>")
         .required()
-        .action       { (u, config) => config.copy(uri = Uri.unsafeParse(u)) }
-    )
+        .action       { (u, config) => config.copy(uri = Uri.unsafeParse(u)) })
 
     val empty = Config(uri = Uri(""), db  = postgres.Config("", "", ""))
 
@@ -80,3 +77,4 @@ object Main extends IOApp:
       finished   <- IO(LocalTime.now())
       _          <- IO(println(PrettySummary(summary, Duration.between(started, finished))))
     yield ExitCode.Success
+}

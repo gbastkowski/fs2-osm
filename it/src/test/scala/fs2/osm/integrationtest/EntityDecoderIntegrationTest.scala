@@ -14,8 +14,7 @@ object EntityDecoderIntegrationTest extends SimpleIOSuite {
   private val bytes = readInputStream(
     fis           = IO(getClass.getResourceAsStream("/bremen-20240402.osm.pbf")),
     chunkSize     = 1024,
-    closeAfterUse = true
-  )
+    closeAfterUse = true)
 
   test("has nodes and ways") {
     val entities = bytes through OsmEntityDecoder.pipe
@@ -24,7 +23,6 @@ object EntityDecoderIntegrationTest extends SimpleIOSuite {
       ways   <- entities.collect { case w: Way   => w }.compile.count
     yield expect.all(
       nodes > 0,
-      ways > 0,
-    )
+      ways > 0)
   }
 }

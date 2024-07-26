@@ -13,7 +13,7 @@ sealed trait OsmEntity {
 }
 
 object Relation {
-  def apply(stringTable: of.StringTable, relation: of.Relation): Relation = {
+  def apply(stringTable: of.StringTable, relation: of.Relation): Relation =
     val relations =
       (relation.memids.scanLeft(0L) { _ + _ }.drop(1), relation.types, relation.rolesSid)
         .zipped
@@ -22,9 +22,7 @@ object Relation {
     Relation(
       relation.id,
       relations,
-      stringTable.tags(relation.keys, relation.vals)
-    )
-  }
+      stringTable.tags(relation.keys, relation.vals))
 
   sealed trait Member {
     val osmId: Long
@@ -37,12 +35,12 @@ object Relation {
     case class Relation     (osmId: Long, role: String) extends Member
     case class Unrecognized (osmId: Long, role: String) extends Member
 
-    def apply(value: Int, osmId: Long, role: String) = value match {
-      case 0 => Node(osmId, role)
-      case 1 => Way(osmId, role)
-      case 2 => Relation(osmId, role)
-      case _ => Unrecognized(osmId, role)
-    }
+    def apply(value: Int, osmId: Long, role: String) =
+      value match
+        case 0 => Node(osmId, role)
+        case 1 => Way(osmId, role)
+        case 2 => Relation(osmId, role)
+        case _ => Unrecognized(osmId, role)
   }
 }
 
@@ -59,8 +57,7 @@ object Way {
       way.id,
       way.refs.scanLeft(0L) { _ + _ }.drop(1),
       stringTable.tags(way.keys, way.vals),
-      Info(stringTable, way.info)
-    )
+      Info(stringTable, way.info))
 }
 
 case class Way(
@@ -84,13 +81,12 @@ case class Node(
 object Info {
   def apply(stringTable: of.StringTable, maybeInfo: Option[of.Info]): Info =
     maybeInfo.fold(empty) { info =>
-        Info(
-          info.version,
-          info.timestamp.map(Instant.ofEpochSecond),
-          info.changeset,
-          info.uid,
-          info.userSid.map(idx => stringTable.getString(idx))
-        )
+      Info(
+        info.version,
+        info.timestamp.map(Instant.ofEpochSecond),
+        info.changeset,
+        info.uid,
+        info.userSid.map(idx => stringTable.getString(idx)))
     }
 
   val empty: Info = Info()

@@ -31,7 +31,7 @@ import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 import org.typelevel.otel4s.Attribute
 
-class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging:
+class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
   import Schema.*
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =
@@ -75,3 +75,4 @@ class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetr
   private def updateRun(sql: Fragment) =
     logger.debug(sql.update.sql)
     sql.update.run
+}

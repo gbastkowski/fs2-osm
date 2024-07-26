@@ -35,7 +35,7 @@ private[core] object PbfReader extends Logging {
       .map(_ => " uncompressed ")
       .orElse(b.zlibData.map(_ => " compressed "))
       .getOrElse(" invalid ") +
-      b.rawSize.getOrElse("unknown") + " bytes"
+    b.rawSize.getOrElse("unknown") + " bytes"
 
   private def parseBigEndian(c: Chunk[Byte]) = {
     val result = java.nio.ByteBuffer.wrap(c.toArray).getInt

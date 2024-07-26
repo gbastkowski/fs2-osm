@@ -48,4 +48,5 @@ case class PrettySummary(summary: Summary, duration: Duration) {
       .flatten
       .map { "  " + _ }
       .mkString("\n")
+
 }

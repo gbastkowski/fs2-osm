@@ -19,9 +19,9 @@ import org.postgis.Point
 import org.typelevel.otel4s.metrics.Counter
 import org.typelevel.otel4s.Attribute
 
-object NodeImporter:
+object NodeImporter {
   def apply[F[_]: Async](counter: Long => F[Unit], xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
-    .collect { case n: Node     => n }
+    .collect { case n: Node => n }
     .chunkN(10000, allowFewer = true)
     .map { handleNodes }
     .parEvalMap(20) { _.transact(xa) }
@@ -42,3 +42,4 @@ object NodeImporter:
     )
 
   private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
+}

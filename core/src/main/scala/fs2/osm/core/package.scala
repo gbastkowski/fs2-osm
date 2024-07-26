@@ -9,7 +9,6 @@ import org.openstreetmap.osmosis.osmbinary.osmformat.{PrimitiveBlock, StringTabl
 import scala.util.Try
 
 package object core {
-
   extension (stringTable: StringTable) {
     def getString(index: Int): String = stringTable.s(index).toString(`UTF-8`)
 

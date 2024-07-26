@@ -1,7 +1,8 @@
 import Dependencies._
 
-ThisBuild / scalaVersion   := "3.4.2"
-Global / excludeLintKeys   := Set(fork) // remove sbt warning
+ThisBuild / scalaVersion             := Versions.scala
+Global    / excludeLintKeys          := Set(fork) // remove sbt warning
+ThisBuild / Test / parallelExecution := false
 
 lazy val core = project
   .enablePlugins(GitVersioning)

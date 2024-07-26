@@ -11,15 +11,15 @@ object DownloadFileSpec extends SimpleIOSuite {
   private val uri = uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf"
 
   loggedTest("download and convert to entities") { logger =>
-    for {
+    for
       numberOfBlobs <- Downloader[IO](uri).compile.count
-    } yield expect(numberOfBlobs >= 244)
+    yield expect(numberOfBlobs >= 244)
   }
 
   loggedTest("download to temp file") { logger =>
-    for {
+    for
       path <- Downloader.toFile[IO](uri)
       _    <- logger.debug(path.toString)
-    } yield expect(true)
+    yield expect(true)
   }
 }

@@ -1,26 +1,6 @@
 import sbt._
 
 object Dependencies {
-  object Versions {
-    val doobie              = "1.0.0-RC5"
-    val embeddedPostgres    = "1.1.0"
-    val fs2                 = "3.10.2"
-    val http4s              = "0.23.26"
-    val log4cats            = "2.6.0"
-    val log4j               = "2.23.1"
-    val log4jScala          = "13.1.0"
-    val odin                = "0.13.0"
-    val opentelemetry       = "1.40.0"
-    val opentelemetryAlpha  = "1.40.0-alpha"
-    val otel4s              = "0.8.0"
-    val postgisJdbc         = "2.5.1"
-    val pureconfig          = "0.17.7"
-    val scalaLogging        = "3.9.4"
-    val scopt               = "4.1.0"
-    val sttp                = "3.9.7"
-    val weaver              = "0.8.4"
-  }
-
   val doobie = Seq(
     "org.tpolecat"                     %% "doobie-core"                               % Versions.doobie,
     "org.tpolecat"                     %% "doobie-hikari"                             % Versions.doobie,
@@ -72,4 +52,25 @@ object Dependencies {
   val weaver = Seq(
     "com.disneystreaming"              %% "weaver-cats"                               % Versions.weaver,
     "com.disneystreaming"              %% "weaver-scalacheck"                         % Versions.weaver)
+}
+
+object Versions {
+  val doobie              = "1.0.0-RC5"
+  val embeddedPostgres    = "1.1.0"
+  val fs2                 = "3.10.2"
+  val http4s              = "0.23.26"
+  val log4cats            = "2.6.0"
+  val log4j               = "2.23.1"
+  val log4jScala          = "13.1.0"
+  val odin                = "0.13.0"
+  val opentelemetry       = "1.40.0"
+  val opentelemetryAlpha  = "1.40.0-alpha"
+  val otel4s              = "0.8.0"
+  val postgisJdbc         = "2.5.1"
+  val pureconfig          = "0.17.7"
+  val scalaLogging        = "3.9.4"
+  val scala               = "3.4.2"
+  val scopt               = "4.1.0"
+  val sttp                = "3.9.7"
+  val weaver              = "0.8.4"
 }

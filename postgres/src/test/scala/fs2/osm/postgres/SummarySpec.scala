@@ -60,7 +60,6 @@ object SummarySpec extends SimpleIOSuite with Checkers {
   }
 
   test("Summary has an empty according to Monoid laws") {
-    import PostgresExporter.*
     given Show[Summary] = _.toString
 
     val empty = Monoid[Summary].empty

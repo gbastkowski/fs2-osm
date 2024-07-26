@@ -29,11 +29,12 @@ object SchemaSpec extends SimpleIOSuite with Checkers {
   test("column definitions") {
     forall(genColumn) { column =>
       val expectedDataType = column.datatype match {
-        case VarChar               => "VARCHAR"
+        case Int                   => "BIGINT"
         case BigInt                => "BIGINT"
         case BigIntArray           => "BIGINT[]"
         case Geography(tpe, srid)  => s"GEOGRAPHY($tpe, $srid)"
         case Jsonb                 => "JSONB"
+        case VarChar               => "VARCHAR"
       }
 
       val expectedConstraint = column.constraint match {

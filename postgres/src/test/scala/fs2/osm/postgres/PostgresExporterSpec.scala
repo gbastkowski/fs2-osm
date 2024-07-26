@@ -8,14 +8,15 @@ import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import doobie.util.transactor.Transactor
 import fs2.*
 import fs2.osm.core.*
+import fs2.osm.telemetry.*
 import org.scalacheck.Gen
 import org.testcontainers.utility.DockerImageName
 import weaver.*
 import weaver.scalacheck.*
 
-object PostgresExporterSpec extends IOSuite with Checkers {
+object PostgresExporterSpec extends IOSuite with Checkers:
   override type Res = PostgresExporter[IO]
-  override def sharedResource: Resource[IO, Res] = {
+  override def sharedResource: Resource[IO, Res] =
     val acquire = IO {
       EmbeddedPostgres
         .builder()
@@ -24,12 +25,11 @@ object PostgresExporterSpec extends IOSuite with Checkers {
         .getPostgresDatabase()
         .getConnection()
     }
-    for {
-      conn <- Resource.make(acquire) { c => IO(c.close())}
-    } yield new PostgresExporter[IO](
-      Transactor.fromConnection(features = Nil, conn, logHandler = Option.empty)
-    )
-  }
+    for
+      conn       <- Resource.make(acquire) { c => IO(c.close()) }
+      telemetry  <- Telemetry("test", "version", getClass.getSimpleName)
+      transactor  = Transactor.fromConnection(conn, logHandler = Option.empty)
+    yield new PostgresExporter[IO](features = Nil, telemetry, transactor)
 
   test("insert entities") { exporter =>
     val entities = Stream(
@@ -111,6 +111,4 @@ object PostgresExporterSpec extends IOSuite with Checkers {
       relations = Seq(
         Relation.Member.Relation(osmId = 4, role = "test")),
       tags = Map("testkey" -> "testvalue"),
-      info = Info.empty)
-  )
-}
+      info = Info.empty))

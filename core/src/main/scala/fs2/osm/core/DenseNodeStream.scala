@@ -30,14 +30,12 @@ private[core] class DenseNodeStream[F[_]](stringTable: StringTable, latOffset: L
   private def toCoordinate(nanoLonLat: (Long, Long)) =
     Coordinate(
       longitude = .000000001 * (lonOffset + (granularity * nanoLonLat._1)),
-      latitude  = .000000001 * (latOffset + (granularity * nanoLonLat._2))
-    )
+      latitude  = .000000001 * (latOffset + (granularity * nanoLonLat._2)))
 
   private def addToCoordinate(coordinate: Coordinate, nanoLonLat: (Long, Long)) =
     Coordinate(
       longitude = coordinate.longitude + .000000001 * granularity * nanoLonLat._1,
-      latitude  = coordinate.latitude  + .000000001 * granularity * nanoLonLat._2
-    )
+      latitude  = coordinate.latitude  + .000000001 * granularity * nanoLonLat._2)
 
   private def streamInfo[F[_]](denseInfo: Option[DenseInfo]) = {
     val versions    = streamForever(denseInfo.toSeq.flatMap(_.version))
@@ -55,8 +53,7 @@ private[core] class DenseNodeStream[F[_]](stringTable: StringTable, latOffset: L
           changeset,
           uid,
           userSid.map { stringTable.getString },
-          visible
-        )
+          visible)
     }
   }
 

@@ -10,11 +10,11 @@ import scala.util.Either
 
 object OsmEntityDecoder extends Logging {
   def pipe[F[_]: Sync](bytes: Stream[F, Byte]): Stream[F, OsmEntity] =
-    for {
-      (header, blob) <- bytes through PbfReader.pipe
+    for
+      (header, blob) <- bytes.through(PbfReader.pipe)
       primitiveBlock <- Stream.fromEither(Either.fromTry(blob.toPrimitiveBlock))
       stringTable     = primitiveBlock.stringtable
       primitiveGroup <- Stream.emits(primitiveBlock.primitivegroup)
       entity         <- EntityStream(primitiveGroup, stringTable).debug(_.toString, logger.debug(_))
-    } yield entity
+    yield entity
 }

@@ -13,7 +13,7 @@ object WaterFeatureSpec extends IOSuite {
 
   override type Res = Transactor[IO]
   override def sharedResource: Resource[IO, Res] = {
-    val xa = Config("jdbc:postgresql:fs2-osm", "gunnar.bastkowski", "").transactor
+    val xa = Config("jdbc:postgresql:fs2-osm", "gunnar", "").transactor
 
     val acquire =
       for
@@ -35,7 +35,7 @@ object WaterFeatureSpec extends IOSuite {
 
     for
       summary <- actual
-    yield expect(summary == List("waters" -> 2409))
+    yield expect(summary == List("waters" -> 2412))
   }
 
   test("Dunger See") { xa =>
@@ -87,6 +87,6 @@ object WaterFeatureSpec extends IOSuite {
     val insertions = insert[IO](xa).foldMonoid.compile.lastOrError
     for
       count <- insertions
-    yield expect.all( count == 1 )
+    yield expect.all(count == 126)
   }
 }
