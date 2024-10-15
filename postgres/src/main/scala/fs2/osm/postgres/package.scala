@@ -8,7 +8,7 @@ import io.circe.syntax.*
 
 package object postgres {
 
-  extension (tags: Map[String, String]) def toJson: Json = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
+  extension (tags: Map[String, String]) def toJson: Json = Json.obj(tags.mapValues { _.asJson }.toSeq*)
 
   given Get[Map[String, String]] = Get[Json].map { json =>
     json.asObject

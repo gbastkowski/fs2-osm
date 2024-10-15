@@ -24,7 +24,7 @@ import fs2.osm.telemetry.Telemetry
 import io.circe.*
 import io.circe.syntax.*
 import org.apache.logging.log4j.scala.Logging
-import org.postgis.Point
+import net.postgis.jdbc.geometry.*
 import org.typelevel.otel4s.metrics.Meter
 import pureconfig.*
 import pureconfig.generic.derivation.default.*

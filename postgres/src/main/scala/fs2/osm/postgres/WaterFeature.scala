@@ -11,14 +11,14 @@ import doobie.util.query.Query0
 import fs2.Stream
 import io.circe.Json
 import io.circe.syntax.*
-import org.postgis.*
+import net.postgis.jdbc.geometry.*
 import org.postgresql.util.PGobject
 import scala.io.Source
 import doobie.free.connection.ConnectionOp
 import cats.free.Free
 
 object WaterFeature extends Feature {
-  type Water = (Long, Option[String], Option[String], org.postgis.Polygon, Map[String, String])
+  type Water = (Long, Option[String], Option[String], Polygon, Map[String, String])
 
   override val tableDefinitions: List[Table] = List(
     Table("waters",
@@ -118,7 +118,7 @@ object WaterFeature extends Feature {
           ) AS lines
       ) as merged
       WHERE ST_GeometryType(geom) = 'ST_LineString'
-    """.query[org.postgis.Polygon]
+    """.query[Polygon]
 
   private def outerSimplePolygon(relationId: Long) =
     sql"""
@@ -140,7 +140,7 @@ object WaterFeature extends Feature {
           GROUP BY way_id
       ) lines
       WHERE closed
-    """.query[org.postgis.Polygon]
+    """.query[Polygon]
 
   private def mergedLineStrings(relationId: Long, role: String) =
     sql"""
@@ -173,5 +173,5 @@ object WaterFeature extends Feature {
           WHERE       way_id = $wayId
           ORDER BY    wn.index
       ) AS nodes
-    """.query[org.postgis.LineString]
+    """.query[LineString]
 }

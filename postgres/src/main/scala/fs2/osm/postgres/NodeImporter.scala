@@ -15,7 +15,7 @@ import doobie.postgres.pgisimplicits.*
 import fs2.{Chunk, Pipe}
 import io.circe.Json
 import io.circe.syntax.*
-import org.postgis.Point
+import net.postgis.jdbc.geometry.*
 import org.typelevel.otel4s.metrics.Counter
 import org.typelevel.otel4s.Attribute
 
@@ -41,5 +41,5 @@ object NodeImporter {
       toJson(n.tags)
     )
 
-  private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq: _*)
+  private def toJson(tags: Map[String, String]) = Json.obj(tags.mapValues { _.asJson }.toSeq*)
 }

@@ -6,12 +6,12 @@ import cats.syntax.all.*
 import doobie.*
 import doobie.free.ConnectionIO
 import doobie.implicits.*
-import doobie.postgres.pgisgeographyimplicits.*
+import doobie.postgres.pgisimplicits.*
 import doobie.util.query.Query0
 import fs2.Stream
 import io.circe.Json
 import io.circe.syntax.*
-import org.postgis.*
+import net.postgis.jdbc.geometry.*
 import org.postgresql.util.PGobject
 import scala.io.Source
 import doobie.free.connection.ConnectionOp
@@ -79,7 +79,7 @@ object AdministrativeBoundaryFeature extends Feature {
   private def outerComplexLine(relationId: Long) =
     sql"""
       SELECT      ST_Collect(w.geom)::geography
-      FROM        relations r
+      FROM        relations rl
       INNER JOIN  relations_ways rw ON rw.relation_id = r.osm_id
       INNER JOIN (
           SELECT  way_id,
@@ -98,5 +98,5 @@ object AdministrativeBoundaryFeature extends Feature {
           GROUP BY way_id
       ) AS w ON w.way_id = rw.way_id
       WHERE relation_id = $relationId
-    """.query[org.postgis.MultiLineString]
+    """.query[MultiLineString]
 }
