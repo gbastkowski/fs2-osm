@@ -35,7 +35,7 @@ object WaterFeatureSpec extends IOSuite {
 
     for
       summary <- actual
-    yield expect(summary == List("waters" -> 2412))
+    yield expect(summary == List("waters" -> 2414))
   }
 
   test("Dunger See") { xa =>
@@ -87,6 +87,6 @@ object WaterFeatureSpec extends IOSuite {
     val insertions = insert[IO](xa).foldMonoid.compile.lastOrError
     for
       count <- insertions
-    yield expect.all(count == 126)
+    yield expect.all(count == 127)
   }
 }

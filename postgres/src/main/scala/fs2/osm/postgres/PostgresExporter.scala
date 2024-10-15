@@ -19,17 +19,17 @@ import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
 import fs2.Pull
 import fs2.Stream.ToPull
-import fs2.{Chunk, Pipe, Stream}
 import fs2.osm.telemetry.Telemetry
+import fs2.{Chunk, Pipe, Stream}
 import io.circe.*
 import io.circe.syntax.*
-import org.apache.logging.log4j.scala.Logging
 import net.postgis.jdbc.geometry.*
+import org.apache.logging.log4j.scala.Logging
+import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
 import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
-import org.typelevel.otel4s.Attribute
 
 class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
   import Schema.*

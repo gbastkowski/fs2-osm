@@ -11,6 +11,9 @@ import fs2.osm.core.*
 import fs2.osm.telemetry.*
 import org.scalacheck.Gen
 import org.testcontainers.utility.DockerImageName
+import org.typelevel.otel4s.Attribute
+import org.typelevel.otel4s.metrics.{Counter, MeasurementValue}
+import scala.collection.immutable
 import weaver.*
 import weaver.scalacheck.*
 
@@ -27,9 +30,8 @@ object PostgresExporterSpec extends IOSuite with Checkers:
     }
     for
       conn       <- Resource.make(acquire) { c => IO(c.close()) }
-      telemetry  <- Telemetry("test", "version", getClass.getSimpleName)
       transactor  = Transactor.fromConnection(conn, logHandler = Option.empty)
-    yield new PostgresExporter[IO](features = Nil, telemetry, transactor)
+    yield new PostgresExporter[IO](features = Nil, TelemetryStub, transactor)
 
   test("insert entities") { exporter =>
     val entities = Stream(

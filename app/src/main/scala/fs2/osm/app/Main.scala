@@ -16,7 +16,7 @@ object Main extends IOApp {
     yield (config, telemetry)
     resources.use { program }
 
-  private val features = List(
+  private lazy val features = List(
     postgres.ImporterPropertiesFeature,
     postgres.OsmLineFeature,
     postgres.HighwayFeature,

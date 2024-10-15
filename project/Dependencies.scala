@@ -44,7 +44,8 @@ object Dependencies {
   val logging = Seq(
     // "com.github.valskalla"             %% "odin-core"         % Versions.odin,
     "org.apache.logging.log4j"          % "log4j-core"                                % Versions.log4j,
-    "org.apache.logging.log4j"          % "log4j-slf4j-impl"                          % Versions.log4j,
+    "org.apache.logging.log4j"          % "log4j-jul"                                 % Versions.log4j,
+    "org.apache.logging.log4j"          % "log4j-slf4j2-impl"                         % Versions.log4j,
     "org.apache.logging.log4j"         %% "log4j-api-scala"                           % Versions.log4jScala)
 
   val otelCore = Seq(

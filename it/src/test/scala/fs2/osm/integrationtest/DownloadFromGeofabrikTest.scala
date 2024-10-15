@@ -35,7 +35,6 @@ object DownloadFromGeofabrikTest extends IOSuite {
     for
       otel       <- OtelJava.autoConfigured[IO]()
       meter      <- Resource.eval(otel.meterProvider.get("test-import"))
-      telemetry  <- Telemetry("name", "version", source = "test-import")
       xa         <- if   sys.env.get("CI").isEmpty
                     then Resource.pure(postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)
                     else
@@ -51,7 +50,7 @@ object DownloadFromGeofabrikTest extends IOSuite {
                         .make { connection } { c => IO(c.close())}
                         .map  { conn => Transactor.fromConnection(conn, logHandler = Option.empty) }
     yield
-      new PostgresExporter[IO](features, telemetry, xa)
+      new PostgresExporter[IO](features, NoopTelemetry, xa)
 
   test("download Bremen data from web and export to Postgres") { exporter =>
     val bytes   = Downloader[IO](bremen)

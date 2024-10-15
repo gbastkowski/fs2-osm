@@ -44,7 +44,7 @@ lazy val app = project
     buildInfoPackage       := "fs2.osm.app",
     git.useGitDescribe     := true,
     // javaAgents             += "io.opentelemetry.javaagent"  % "opentelemetry-javaagent" % Versions.opentelemetry,
-    javaOptions            += "-Dotel.javaagent.debug=true",
+    javaOptions           ++= debugJavaAgent,
     libraryDependencies   ++= otelJava                                ++
                               scopt                                   ,
     name                   := "fs2-osm"                               )
@@ -54,7 +54,12 @@ lazy val root = project
   .aggregate(app, core, it, postgres)
 
 lazy val commonSettings = Seq(
+  javaOptions             ++= julOverLog4j,
+  Test/javaOptions        ++= julOverLog4j,
   libraryDependencies     ++= weaver            .map  { _ % Test },
   testFrameworks           += new TestFramework("weaver.framework.CatsEffect"),
   run  / fork              := true,
   test / fork              := true)
+
+lazy val debugJavaAgent = Seq("-Dotel.javaagent.debug=true")
+lazy val julOverLog4j   = Seq("-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager")
