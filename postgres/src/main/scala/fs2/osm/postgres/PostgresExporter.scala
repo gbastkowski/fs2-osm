@@ -31,11 +31,12 @@ import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 
-class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
+class PostgresExporter[F[_]: Async](features: List[SqlFeature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
   import Schema.*
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =
     for
+      _                <- Async[F].delay(logger.info(s"Starting database export"))
       _                <- createSchema
       nodeCounter      <- telemetry.counter[Long]("importer", "nodes")
       wayCounter       <- telemetry.counter[Long]("importer", "ways")
@@ -53,7 +54,7 @@ class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetr
 
   private def runFeatures: F[Summary] = features traverse { runFeature } map { _.combineAll }
 
-  private def runFeature(feature: Feature) =
+  private def runFeature(feature: SqlFeature) =
     feature
       .run(xa)
       .map { _.map { (key, value) => Summary().insert(key, value) } }

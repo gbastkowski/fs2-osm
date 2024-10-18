@@ -10,7 +10,7 @@ import org.apache.logging.log4j.scala.Logging
 import scala.io.Source
 import cats.Foldable
 
-trait Feature extends Logging {
+trait SqlFeature extends Logging {
   def run[F[_]: Async](xa: Transactor[F]): List[F[(String, Int)]] =
     dataGenerator.map { (key, operation) => operation.transact(xa).map { key -> _ } }
 

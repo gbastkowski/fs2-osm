@@ -5,7 +5,7 @@ import doobie.*
 import doobie.implicits.*
 import doobie.util.fragment.Fragment
 
-object HighwayFeature extends Feature {
+object HighwayFeature extends SqlFeature {
   override val tableDefinitions: List[Table] =
     List(
       Table("highways",

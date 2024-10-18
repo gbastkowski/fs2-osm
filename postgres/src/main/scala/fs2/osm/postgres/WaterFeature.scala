@@ -17,7 +17,7 @@ import scala.io.Source
 import doobie.free.connection.ConnectionOp
 import cats.free.Free
 
-object WaterFeature extends Feature {
+object WaterFeature extends SqlFeature {
   type Water = (Long, Option[String], Option[String], Polygon, Map[String, String])
 
   override val tableDefinitions: List[Table] = List(
@@ -62,7 +62,6 @@ object WaterFeature extends Feature {
         outerPolygon                   <- outerComplexPolygon(relationId).stream // ++
                                           // outerSimplePolygon(relationId).stream
         water                           = (relationId, name, tags.get("water"), outerPolygon, tags)
-        _ = println(water._1)
       yield (relationId, name, tags.get("water"), outerPolygon, tags)
 
     found

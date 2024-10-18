@@ -5,6 +5,7 @@ import cats.effect.*
 import cats.syntax.all.*
 import fs2.Stream
 import fs2.io.file.{Files, Path}
+import org.apache.logging.log4j.scala.Logging
 import org.openstreetmap.osmosis.osmbinary.fileformat.{BlobHeader, Blob}
 import scala.concurrent.duration.Duration
 import sttp.capabilities.fs2.Fs2Streams
@@ -12,7 +13,7 @@ import sttp.client3.*
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
 import sttp.model.Uri
 
-object Downloader {
+object Downloader extends Logging {
   def apply[F[_]: Async](uri: Uri): Stream[F, Byte] =
     for
       backend  <- Stream.resource(HttpClientFs2Backend.resource())

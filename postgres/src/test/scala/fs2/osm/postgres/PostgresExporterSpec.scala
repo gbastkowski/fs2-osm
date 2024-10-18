@@ -31,7 +31,7 @@ object PostgresExporterSpec extends IOSuite with Checkers:
     for
       conn       <- Resource.make(acquire) { c => IO(c.close()) }
       transactor  = Transactor.fromConnection(conn, logHandler = Option.empty)
-    yield new PostgresExporter[IO](features = Nil, TelemetryStub, transactor)
+    yield new PostgresExporter[IO](features = Nil, Telemetry.noop, transactor)
 
   test("insert entities") { exporter =>
     val entities = Stream(

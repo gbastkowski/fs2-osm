@@ -4,7 +4,7 @@ import doobie.free.ConnectionIO
 import doobie.util.fragment.Fragment
 import scala.io.Source
 
-object ProtectedAreaFeature extends Feature {
+object ProtectedAreaFeature extends SqlFeature {
   override val tableDefinitions: List[Table] =
     List(
       Table("protected_areas",

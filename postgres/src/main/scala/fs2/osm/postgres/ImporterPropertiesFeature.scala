@@ -4,7 +4,7 @@ import doobie.free.ConnectionIO
 import doobie.implicits.*
 import scala.io.Source
 
-object ImporterPropertiesFeature extends Feature {
+object ImporterPropertiesFeature extends SqlFeature {
   override val tableDefinitions: List[Table] =
     List(
       Table("importer_properties",

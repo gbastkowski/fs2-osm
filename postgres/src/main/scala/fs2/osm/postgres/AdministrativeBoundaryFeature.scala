@@ -17,7 +17,7 @@ import scala.io.Source
 import doobie.free.connection.ConnectionOp
 import cats.free.Free
 
-object AdministrativeBoundaryFeature extends Feature {
+object AdministrativeBoundaryFeature extends SqlFeature {
   type AdministrativeBoundary = (Long, Option[String], Option[Int], MultiLineString, Map[String, String])
 
   override val tableDefinitions: List[Table] = List(

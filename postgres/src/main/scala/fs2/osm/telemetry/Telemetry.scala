@@ -24,10 +24,10 @@ import org.typelevel.otel4s.oteljava.OtelJava
 import org.typelevel.otel4s.oteljava.context.LocalContextProvider
 import scala.collection.immutable
 
-object Telemetry:
-  def apply[F[_]: Async: LocalContextProvider](name: String, version: String, source: String): Resource[F, Telemetry[F]] =
-    for   otel <- OtelJava.resource(openTelemetry(name, version))
-    yield new Otel4sTelemetry(otel, attributes(source))
+object Telemetry {
+  def apply[F[_]: Async: LocalContextProvider](attributes: Attributes, config: Config): Resource[F, Telemetry[F]] =
+    for otel <- OtelJava.resource(openTelemetry(attributes.name, attributes.version, config))
+    yield new Otel4sTelemetry(otel, buildAttributes(attributes.source))
 
   def noop[F[_]: Async]: Telemetry[F] = new Telemetry[F] {
     val attributes: List[Attribute[?]] = Nil
@@ -39,24 +39,29 @@ object Telemetry:
     }
   }
 
-  private def attributes(source: String) = List(Attribute(string("source"), source))
+  private def buildAttributes(source: String) = List(Attribute(string("source"), source))
 
-  private def openTelemetry[F[_]: Async](name: String, version: String) = Async[F].delay(
-    JOpenTelemetrySdk.builder()
-      .setMeterProvider(
-        SdkMeterProvider.builder()
-          .setResource(
-            JOtelResource.getDefault().toBuilder()
-              .put(SERVICE_NAME, name)
-              .put(SERVICE_VERSION, version)
-              .build())
-          .registerMetricReader(PrometheusHttpServer.builder().setPort(8889).build())
-          .registerMetricReader(PeriodicMetricReader.builder(LoggingMetricExporter.create()).setInterval(interval).build())
-          // .registerMetricReader(PeriodicMetricReader.builder(OtlpGrpcMetricExporter.getDefault()).setInterval(interval).build())
-          .build())
-      .build())
+  private def openTelemetry[F[_]: Async](name: String, version: String, config: Config) = Async[F].delay {
+    val interval = java.time.Duration.ofSeconds(2)
+    val meterProviderBuilder =
+      SdkMeterProvider.builder()
+        .setResource(
+          JOtelResource.getDefault().toBuilder()
+            .put(SERVICE_NAME, name)
+            .put(SERVICE_VERSION, version)
+            .build())
 
-  private lazy val interval = java.time.Duration.ofSeconds(2)
+    config.prometheusPort.fold(()) { port =>
+      meterProviderBuilder.registerMetricReader(PrometheusHttpServer.builder().setPort(port).build())
+    }
+    if config.loggingExportEnabled then meterProviderBuilder
+      .registerMetricReader(PeriodicMetricReader.builder(LoggingMetricExporter.create()).setInterval(interval).build())
+    if config.otlpGrpcExportEnabled then meterProviderBuilder
+      .registerMetricReader(PeriodicMetricReader.builder(OtlpGrpcMetricExporter.getDefault()).setInterval(interval).build())
+
+    JOpenTelemetrySdk.builder().setMeterProvider(meterProviderBuilder.build()).build()
+  }
+}
 
 trait Telemetry[F[_]]:
   val attributes: List[Attribute[?]]

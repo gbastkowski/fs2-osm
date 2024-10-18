@@ -2,17 +2,21 @@ package fs2.osm
 package app
 
 import cats.effect.*
+import cats.syntax.all.*
 import fs2.osm.core.*
 import fs2.osm.postgres.PostgresExporter
 import fs2.osm.telemetry.Telemetry
 import java.time.*
 import sttp.client3.UriContext
+import pureconfig.ConfigSource
 
 object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] =
     val resources = for
+      // initial    <- Resource.pure(ConfigSource.default.loadOrThrow[Config])
       config     <- Resource.eval(IO.fromOption(CliArgumentParser(args)) { new IllegalArgumentException("Invalid arguments") })
-      telemetry  <- Telemetry[IO](BuildInfo.name, BuildInfo.version, config.uri.toString)
+      attributes  = telemetry.Attributes(BuildInfo.name, BuildInfo.version, config.uri.toString)
+      telemetry  <- Telemetry[IO](attributes, config.otel)
     yield (config, telemetry)
     resources.use { program }
 

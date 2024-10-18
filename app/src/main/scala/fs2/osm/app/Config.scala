@@ -7,6 +7,10 @@ import pureconfig.module.catseffect.syntax.*
 import sttp.client3.UriContext
 import sttp.model.Uri
 
-case class Config(uri: Uri, db: postgres.Config) derives ConfigReader
+case class Config(
+  uri: Uri,
+  db: postgres.Config,
+  otel: telemetry.Config
+) derives ConfigReader
 
 private given ConfigReader[Uri] = ConfigReader[String].map { Uri.unsafeParse }

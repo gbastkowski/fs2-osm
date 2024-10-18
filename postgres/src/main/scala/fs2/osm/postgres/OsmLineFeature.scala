@@ -1,6 +1,6 @@
 package fs2.osm.postgres
 
-object OsmLineFeature extends Feature {
+object OsmLineFeature extends SqlFeature {
   override val tableDefinitions: List[Table] = List(
     Table("osm_lines",
           Column("osm_id", BigInt, PrimaryKey),

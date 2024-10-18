@@ -9,7 +9,6 @@ import fs2.osm.core.*
 import java.sql.Connection
 import javax.sql.DataSource
 import org.testcontainers.utility.DockerImageName
-import org.typelevel.otel4s.oteljava.OtelJava
 import postgres.*
 import sttp.client3.UriContext
 import sttp.model.Uri
@@ -33,8 +32,6 @@ object DownloadFromGeofabrikTest extends IOSuite {
   override type Res = PostgresExporter[IO]
   override def sharedResource: Resource[IO, Res] =
     for
-      otel       <- OtelJava.autoConfigured[IO]()
-      meter      <- Resource.eval(otel.meterProvider.get("test-import"))
       xa         <- if   sys.env.get("CI").isEmpty
                     then Resource.pure(postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)
                     else
@@ -50,13 +47,12 @@ object DownloadFromGeofabrikTest extends IOSuite {
                         .make { connection } { c => IO(c.close())}
                         .map  { conn => Transactor.fromConnection(conn, logHandler = Option.empty) }
     yield
-      new PostgresExporter[IO](features, NoopTelemetry, xa)
+      new PostgresExporter[IO](features, Telemetry.noop, xa)
 
   test("download Bremen data from web and export to Postgres") { exporter =>
     val bytes   = Downloader[IO](bremen)
     val stream  = bytes.through(OsmEntityDecoder.pipe)
     for
-
       cancel   <- Deferred[IO, Either[Throwable, Unit]]
       _        <- (IO.async_[Unit] { cb =>
                     sun.misc.Signal.handle(new sun.misc.Signal("INT"),  _ => cb(Right(())))

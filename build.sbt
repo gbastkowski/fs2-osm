@@ -54,12 +54,12 @@ lazy val root = project
   .aggregate(app, core, it, postgres)
 
 lazy val commonSettings = Seq(
-  javaOptions             ++= julOverLog4j,
-  Test/javaOptions        ++= julOverLog4j,
   libraryDependencies     ++= weaver            .map  { _ % Test },
   testFrameworks           += new TestFramework("weaver.framework.CatsEffect"),
   run  / fork              := true,
-  test / fork              := true)
+  javaOptions             ++= julOverLog4j,
+  Test / fork              := true,
+  Test / javaOptions      ++= julOverLog4j)
 
 lazy val debugJavaAgent = Seq("-Dotel.javaagent.debug=true")
 lazy val julOverLog4j   = Seq("-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager")
