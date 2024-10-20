@@ -40,7 +40,7 @@ object WaterFeatureSpec extends IOSuite {
 
   test("Dunger See") { xa =>
     val dungerSee =
-      waterRelations
+      multiPolygons
         .stream
         .filter { case (id, _, _, _) => id == 2952 }
         .transact(xa)
@@ -77,7 +77,7 @@ object WaterFeatureSpec extends IOSuite {
 
   test("insert") { xa =>
     for
-      data <- waterRelations.stream.filter { case (id, _, _, _) => id == 2952 }.transact(xa).compile.toList
+      data <- multiPolygons.stream.filter { case (id, _, _, _) => id == 2952 }.transact(xa).compile.toList
       geom <- outerComplexPolygon(2952).stream.transact(xa).compile.toList
       list <- insertList(List((data.head._1, data.head._2, data.head._3, geom.head, data.head._4))).transact(xa)
     yield expect.all(

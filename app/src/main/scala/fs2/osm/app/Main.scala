@@ -9,6 +9,7 @@ import fs2.osm.telemetry.Telemetry
 import java.time.*
 import sttp.client3.UriContext
 import pureconfig.ConfigSource
+import org.apache.logging.log4j.scala.Logging
 
 object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] =
@@ -20,11 +21,13 @@ object Main extends IOApp {
     yield (config, telemetry)
     resources.use { program }
 
-  private lazy val features = List(
+  private lazy val features: List[postgres.Feature] = List(
     postgres.ImporterPropertiesFeature,
     postgres.OsmLineFeature,
     postgres.HighwayFeature,
+    postgres.WaterwayFeature,
     postgres.WaterFeature,
+    postgres.WaterFeature2,
     postgres.BuildingFeature,
     postgres.RailwayFeature,
     postgres.ProtectedAreaFeature)

@@ -1,9 +1,12 @@
-package fs2.osm.postgres
+package fs2.osm
+package postgres
 
 import cats.effect.Async
+import cats.free.Free
 import cats.syntax.all.*
 import doobie.*
 import doobie.free.ConnectionIO
+import doobie.free.connection.ConnectionOp
 import doobie.implicits.*
 import doobie.postgres.circe.json.implicits.*
 import doobie.postgres.pgisgeographyimplicits.*
@@ -14,10 +17,8 @@ import io.circe.syntax.*
 import net.postgis.jdbc.geometry.*
 import org.postgresql.util.PGobject
 import scala.io.Source
-import doobie.free.connection.ConnectionOp
-import cats.free.Free
 
-object WaterFeature extends SqlFeature {
+object WaterFeature extends SqlFeature with MultiPolygonBuilder {
   type Water = (Long, Option[String], Option[String], Polygon, Map[String, String])
 
   override val tableDefinitions: List[Table] = List(
@@ -26,14 +27,14 @@ object WaterFeature extends SqlFeature {
           Column("name", VarChar),
           Column("kind", VarChar),
           Column("tags", Jsonb),
-          Column("geom", Geography(fs2.osm.postgres.Polygon, Wgs84))),
+          Column("geom", Geography(fs2.osm.postgres.MultiPolygon, Wgs84))),
     Table("waters_nodes",
           Column("water_id", BigInt, NotNull()),
           Column("node_id", BigInt, NotNull())),
   )
 
-  override val dataGenerator: List[(String, ConnectionIO[Int])] = List(
-    "waters" -> logAndRun(
+  override val dataGenerator: List[(String, ConnectionIO[Int])] =
+    val simpleWaters = logAndRun(
       sql"""
         INSERT INTO waters	    (osm_id, name, kind, geom,                 tags)
         SELECT                   osm_id, name, kind, ST_MakePolygon(geom), tags
@@ -50,15 +51,14 @@ object WaterFeature extends SqlFeature {
             GROUP BY            ways.osm_id
         ) AS grouped_nodes
         WHERE                   ST_IsClosed(geom)
-      """
-    )
-  )
+      """)
+    List("waters" -> simpleWaters)
 
-  def insert[F[_]: Async](xa: Transactor[F]): Stream[F, Int] = {
+  private def insert[F[_]: Async](xa: Transactor[F]): Stream[F, Int] = {
     val sql = "INSERT INTO waters (osm_id, name, kind, geom, tags) values (?, ?, ?, ?, ?)"
     val found: Stream[ConnectionIO, Water] =
       for
-        (relationId, name, kind, tags) <- waterRelations.stream
+        (relationId, name, kind, tags) <- multiPolygons.stream
         outerPolygon                   <- outerComplexPolygon(relationId).stream // ++
                                           // outerSimplePolygon(relationId).stream
         water                           = (relationId, name, tags.get("water"), outerPolygon, tags)
@@ -70,20 +70,20 @@ object WaterFeature extends SqlFeature {
       .transact(xa)
   }
 
-  def insertList(waters: List[Water]) =
-    Update[Water]("INSERT INTO waters (osm_id, name, kind, geom, tags) values (?, ?, ?, ?, ?)").updateMany(waters)
+  def insertList(waters: List[Water]) = Update[Water]("""
+      INSERT  INTO waters (osm_id, name, kind, geom, tags)
+      VALUES  (?, ?, ?, ?, ?)
+  """).updateMany(waters)
 
-  val waterRelations: Query0[(Long, Option[String], Option[String], Map[String, String])] =
-    sql"""
+  private val multiPolygons: Query0[(Long, Option[String], Option[String], Map[String, String])] = sql"""
       SELECT  osm_id,
               name,
-              relations.tags->>'water' as kind,
+              relations.tags->>'water'    as kind,
               tags
       FROM    relations
-      WHERE   relations.type = 'multipolygon'
-      AND     relations.tags->>'natural' = 'water'
-    """
-      .query[(Long, Option[String], Option[String], Map[String, String])]
+      WHERE   relations.type               = 'multipolygon'
+      AND     relations.tags->>'natural'   = 'water'
+  """.query[(Long, Option[String], Option[String], Map[String, String])]
 
   given Get[Map[String, String]] = Get[Json].map { json =>
     json.asObject

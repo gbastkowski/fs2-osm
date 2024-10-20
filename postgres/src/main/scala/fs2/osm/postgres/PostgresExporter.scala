@@ -31,7 +31,7 @@ import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 
-class PostgresExporter[F[_]: Async](features: List[SqlFeature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
+class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
   import Schema.*
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =
@@ -54,12 +54,11 @@ class PostgresExporter[F[_]: Async](features: List[SqlFeature], telemetry: Telem
 
   private def runFeatures: F[Summary] = features traverse { runFeature } map { _.combineAll }
 
-  private def runFeature(feature: SqlFeature) =
+  private def runFeature(feature: Feature): F[Summary] =
     feature
       .run(xa)
-      .map { _.map { (key, value) => Summary().insert(key, value) } }
-      .sequence
-      .map { _.combineAll }
+      .map { (key, value) => Summary().insert(key, value) }
+      .foldMonoid.compile.toList.map(_.head)
 
   private lazy val createSchema =
     val allTables    = DefaultSchema.tables.toList ::: features.flatMap { _.tableDefinitions }

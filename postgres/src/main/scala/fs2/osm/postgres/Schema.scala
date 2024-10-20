@@ -96,6 +96,7 @@ case object LineString                              extends GeographyType
 case object MultiLineString                         extends GeographyType
 case object Point                                   extends GeographyType
 case object Polygon                                 extends GeographyType
+case object MultiPolygon                            extends GeographyType
 
 type Srid = Int
 

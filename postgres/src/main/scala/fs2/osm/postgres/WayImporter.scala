@@ -19,6 +19,8 @@ import net.postgis.jdbc.geometry.Point
 import org.typelevel.otel4s.metrics.Counter
 
 object WayImporter:
+  type Record = (Long, Option[String], Array[Long], Json)
+
   def apply[F[_]: Async](counter: Long => F[Unit], xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
     .collect { case n: Way      => n }
     .chunkN(10000, allowFewer = true)
@@ -28,17 +30,19 @@ object WayImporter:
     .map { "ways" -> _ }
 
   private def handleWays(chunk: Chunk[Way]) =
-    val nodesWithIndex = chunk.toList.flatMap { way => way.nodes.zipWithIndex.map { (nodeId, index) => (way.osmId, nodeId, index) } }
+    val nodesWithIndex = chunk.toList.flatMap { way =>
+      way.nodes.zipWithIndex.map { (nodeId, index) => (way.osmId, nodeId, index) }
+    }
 
     val insertIntoWays      = "INSERT INTO ways (osm_id, name, nodes, tags) VALUES (?, ?, ?, ?)"
     val insertIntoWaysNodes = "INSERT INTO ways_nodes (way_id, node_id, index) VALUES (?, ?, ?)"
 
     Seq(
-      Update[(Long, Option[String], Array[Long], Json)](insertIntoWays).updateMany(chunk.map { _.asTuple }),
+      Update[Record](insertIntoWays).updateMany(chunk.map { _.asTuple }),
       Update[(Long, Long, Int)](insertIntoWaysNodes).updateMany(nodesWithIndex)
     ).combineAll
 
-  extension (w: Way) def asTuple =
+  extension (w: Way) def asTuple: Record =
     (
       w.osmId,
       w.tags.get("name"),

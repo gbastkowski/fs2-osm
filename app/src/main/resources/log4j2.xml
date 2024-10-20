@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration monitorInterval="5">
+  <Appenders>
+      <Console name="Out">
+        <PatternLayout pattern="[%level] %c{1}  %m%n%ex"/>
+      </Console>
+  </Appenders>
+
+  <Loggers>
+    <Root level="info">
+      <AppenderRef ref="Out"/>
+    </Root>
+  </Loggers>
+</Configuration>
