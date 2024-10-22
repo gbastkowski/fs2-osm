@@ -52,13 +52,13 @@ class IndustrialFeature[F[_]: Async] extends Queries {
     ).transact(xa)
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
-    MultiPolygonBuilder
+    ComplexPolygonBuilder
       .findMultiPolygonsByTag("landuse", "industrial")
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))
 
-  private def insert(r: MultiPolygonBuilder.Record) =
+  private def insert(r: ComplexPolygonBuilder.Record) =
     logAndRun(
       sql"""
         INSERT INTO industrials (osm_id, name, tags, geom)

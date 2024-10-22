@@ -32,34 +32,36 @@ class AmenityFeature[F[_]: Async] extends Queries {
       .map { "amenities" -> _ }
 
   private def simplePolygons[F[_]: Async](xa: Transactor[F]) =
-    logAndRun(
-      sql"""
+    val groupedNodes = sql"""
+        SELECT  ways.osm_id                                       AS osm_id,
+                ways.name                                         AS name,
+                ST_MakeLine(array_agg(nodes.geom)::geometry[])    AS geom,
+                ways.tags                                         AS tags
+        FROM                ways
+        CROSS JOIN LATERAL  unnest(ways.nodes)                    AS node_id
+        INNER JOIN          nodes                                 ON nodes.osm_id = node_id
+        WHERE               ways.tags->>'landuse' = 'industrial'
+        AND                 ways.tags->>'amenity' = 'recycling'
+        GROUP BY            ways.osm_id
+    """
+
+    val insert = sql"""
         INSERT INTO amenities (osm_id, name, geom,                 tags)
         SELECT                 osm_id, name, ST_MakePolygon(geom), tags
-        FROM (
-            SELECT  ways.osm_id                                       AS osm_id,
-                    ways.name                                         AS name,
-                    ST_MakeLine(array_agg(nodes.geom)::geometry[])    AS geom,
-                    ways.tags                                         AS tags
-            FROM                ways
-            CROSS JOIN LATERAL  unnest(ways.nodes)                    AS node_id
-            INNER JOIN          nodes                                 ON nodes.osm_id = node_id
-            WHERE               ways.tags->>'landuse' = 'industrial'
-            AND                 ways.tags->>'amenity' = 'recycling'
-            GROUP BY            ways.osm_id
-        ) AS grouped_nodes
-        WHERE                   ST_IsClosed(geom)
-      """
-    ).transact(xa)
+        FROM                  ($groupedNodes)
+        WHERE                 ST_IsClosed(geom)
+    """
+
+    logAndRun(insert).transact(xa)
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
-    MultiPolygonBuilder
+    ComplexPolygonBuilder
       .findMultiPolygonsByTags("landuse" -> "industrial", "amenity" -> "recycling")
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))
 
-  private def insert(r: MultiPolygonBuilder.Record) =
+  private def insert(r: ComplexPolygonBuilder.Record) =
     logAndRun(
       sql"""
         INSERT INTO amenities (osm_id, name, tags, geom)

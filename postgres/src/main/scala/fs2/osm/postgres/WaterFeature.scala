@@ -54,13 +54,13 @@ class WaterFeature[F[_]: Async] extends Queries {
     ).transact(xa)
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
-    MultiPolygonBuilder
+    ComplexPolygonBuilder
       .findMultiPolygonsByTag("natural", "water")
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))
 
-  private def insert(r: MultiPolygonBuilder.Record) =
+  private def insert(r: ComplexPolygonBuilder.Record) =
     val kind = r.tags.getOrElse("water", "unspecified")
     logAndRun(
       sql"""

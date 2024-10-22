@@ -14,7 +14,7 @@ import fs2.{Chunk, Stream}
 import net.postgis.jdbc.geometry.{LinearRing, LineString, MultiPolygon, Polygon}
 
 // TODO test outer polygon with multiple ways, see relation 3352832
-object MultiPolygonBuilder {
+object ComplexPolygonBuilder {
   import Fragment.*, Fragments.*
 
   private type Relation = (Long, Option[String], Map[String, String])
