@@ -1,11 +1,18 @@
 package fs2.osm
 package postgres
 
-import doobie.free.ConnectionIO
-import doobie.util.fragment.Fragment
-import scala.io.Source
+import cats.effect.*
+import cats.syntax.all.*
+import doobie.*
+import doobie.implicits.*
+import fs2.Stream
 
-object RailwayFeature extends SqlFeature {
+object RailwayFeature extends Feature with Queries {
+  override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
+    Stream
+      .emits(dataGenerator.map { (key, operation) => operation.transact(xa).map { key -> _ } })
+      .flatMap(Stream.eval)
+
   override val tableDefinitions: List[Table] = List(
     Table("railways",
           Column("osm_id", BigInt, PrimaryKey),
@@ -19,7 +26,7 @@ object RailwayFeature extends SqlFeature {
           Column("node_id", BigInt, NotNull()))
   )
 
-  override def dataGenerator: List[(String, ConnectionIO[Int])] = List(
+  private def dataGenerator: List[(String, ConnectionIO[Int])] = List(
     "railways" -> logAndRun(getClass.getResource("/insert-into-railways.sql"))
   )
 }

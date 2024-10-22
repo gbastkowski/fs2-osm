@@ -25,12 +25,18 @@ object Main extends IOApp {
     postgres.ImporterPropertiesFeature,
     postgres.OsmLineFeature,
     postgres.HighwayFeature,
+    postgres.CoastlineFeature,
+    postgres.AmenityFeature,
+    postgres.IndustrialFeature,
+    postgres.LeisureFeature,
     postgres.WaterwayFeature,
     postgres.WaterFeature,
-    postgres.WaterFeature2,
     postgres.BuildingFeature,
+    postgres.RailFeature,
     postgres.RailwayFeature,
-    postgres.ProtectedAreaFeature)
+    postgres.ProtectedAreaFeature,
+    postgres.WoodFeature,
+  )
 
   private def program(config: Config, otel: Telemetry[IO]): IO[ExitCode] =
     for

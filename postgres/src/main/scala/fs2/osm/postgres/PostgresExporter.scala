@@ -57,6 +57,7 @@ class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetr
   private def runFeature(feature: Feature): F[Summary] =
     feature
       .run(xa)
+      .debug(x => s"saved $x", logger.info)
       .map { (key, value) => Summary().insert(key, value) }
       .foldMonoid.compile.toList.map(_.head)
 

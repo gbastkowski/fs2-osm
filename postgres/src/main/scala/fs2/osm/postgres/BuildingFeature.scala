@@ -1,10 +1,20 @@
 package fs2.osm.postgres
 
+import cats.effect.*
+import cats.syntax.all.*
 import doobie.*
 import doobie.implicits.*
+import fs2.Stream
+import java.net.URL
 import scala.io.Source
 
-object BuildingFeature extends SqlFeature {
+object BuildingFeature extends Feature with Queries {
+  override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
+    val dataGenerator = List("buildings" -> logAndRun(getClass.getResource("/insert-into-buildings.sql")))
+    Stream
+      .emits(dataGenerator.map { (key, operation) => operation.transact(xa).map { key -> _ } })
+      .flatMap(Stream.eval)
+
   override val tableDefinitions: List[Table] = List(
     Table("buildings",
           Column("osm_id", BigInt, PrimaryKey),
@@ -16,24 +26,4 @@ object BuildingFeature extends SqlFeature {
           Column("building_id", BigInt, NotNull()),
           Column("node_id", BigInt, NotNull())),
   )
-
-  override def dataGenerator = List("buildings" -> logAndRun(getClass.getResource("/insert-into-buildings.sql")))
-  //   sql"""
-  //   INSERT INTO buildings	(osm_id, name, kind, geom,                 tags)
-  //   SELECT                   osm_id, name, kind, ST_MakePolygon(geom), tags
-  //   FROM (
-  //       SELECT
-  //           ways.osm_id   AS osm_id,
-  //           ways.name     AS name,
-  //           ways.tags->>'building' AS kind,
-  //           ST_MakeLine(array_agg(nodes.geom)::geometry[]) AS geom,
-  //           ways.tags AS tags
-  //       FROM ways
-  //       CROSS JOIN LATERAL unnest(ways.nodes) AS node_id
-  //       INNER JOIN nodes  nodes.osm_id = node_id
-  //       WHERE ways.tags->>'building' IS NOT NULL
-  //       GROUP BY ways.osm_id
-  //   ) AS grouped_nodes
-  //   WHERE ST_IsClosed(geom)
-  // """
 }

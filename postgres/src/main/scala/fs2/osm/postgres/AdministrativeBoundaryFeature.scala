@@ -17,8 +17,13 @@ import scala.io.Source
 import doobie.free.connection.ConnectionOp
 import cats.free.Free
 
-object AdministrativeBoundaryFeature extends SqlFeature {
+object AdministrativeBoundaryFeature extends Feature {
   type AdministrativeBoundary = (Long, Option[String], Option[Int], MultiLineString, Map[String, String])
+
+  override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
+    Stream
+      .emits(dataGenerator.map { (key, operation) => operation.transact(xa).map { key -> _ } })
+      .flatMap(Stream.eval)
 
   override val tableDefinitions: List[Table] = List(
     Table("administrative_boundaries",
@@ -29,7 +34,7 @@ object AdministrativeBoundaryFeature extends SqlFeature {
           Column("geom", Geography(fs2.osm.postgres.MultiLineString, Wgs84))),
     )
 
-  override val dataGenerator: List[(String, ConnectionIO[Int])] = List(
+  private val dataGenerator: List[(String, ConnectionIO[Int])] = List(
     "administrative_boundaries" -> logAndRun(
       sql"""
         INSERT INTO administrative_boundaries (osm_id, name, admin_level, geom,          tags)
@@ -99,4 +104,9 @@ object AdministrativeBoundaryFeature extends SqlFeature {
       ) AS w ON w.way_id = rw.way_id
       WHERE relation_id = $relationId
     """.query[MultiLineString]
+
+  private def logAndRun(sql: Fragment): ConnectionIO[Int] = {
+    logger.debug(sql.update.sql)
+    sql.update.run
+  }
 }
