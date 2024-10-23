@@ -55,7 +55,7 @@ class LeisureFeature[F[_]: Async] extends Queries {
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
     ComplexPolygonBuilder
-      .findMultiPolygonsWithTag("leisure")
+      .findMultiPolygonsWithTag[ComplexPolygonBuilder.Record]("leisure")(ComplexPolygonBuilder.toRecord)
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))

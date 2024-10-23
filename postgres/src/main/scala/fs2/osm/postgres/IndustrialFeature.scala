@@ -53,7 +53,7 @@ class IndustrialFeature[F[_]: Async] extends Queries {
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
     ComplexPolygonBuilder
-      .findMultiPolygonsByTag("landuse", "industrial")
+      .findMultiPolygonsByTag[ComplexPolygonBuilder.Record]("landuse", "industrial")(ComplexPolygonBuilder.toRecord)
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))

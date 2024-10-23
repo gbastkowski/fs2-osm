@@ -13,41 +13,71 @@ import doobie.util.query.Query0
 import fs2.{Chunk, Stream}
 import net.postgis.jdbc.geometry.{LinearRing, LineString, MultiPolygon, Polygon}
 
+object ComplexPolygonBuilder extends ComplexPolygonBuilder
+
 // TODO test outer polygon with multiple ways, see relation 3352832
-object ComplexPolygonBuilder {
-  import Fragment.*, Fragments.*
+trait ComplexPolygonBuilder {
+  import Fragments.*
 
-  private type Relation = (Long, Option[String], Map[String, String])
+  case class Relation(id: Long, name: Option[String], tags: Map[String, String])
 
+  object Record {
+    def apply(r: Relation, m: MultiPolygon): Record = Record(r.id, r.name, r.tags, m)
+  }
   case class Record(osmId: Long, name: Option[String], tags: Map[String, String], geom: MultiPolygon)
+  val toRecord: (Relation, MultiPolygon) => Record = (r, m) => Record(r.id, r.name, r.tags, m)
 
-  def findMultiPolygonsByTag(key: String, value: String): Stream[[x] =>> ConnectionIO[x], Record] =
-    findMultiPolygonsByFragment(const(s"relations.tags->>'$key' = '$value'"))
+  object RecordWithKind {
+    def apply(r: Relation, m: MultiPolygon): RecordWithKind = RecordWithKind(r.id, r.name, r.tags.get("kind"), r.tags, m)
+  }
+  case class RecordWithKind(
+    osmId: Long,
+    name: Option[String],
+    kind: Option[String],
+    tags: Map[String, String],
+    geom: MultiPolygon)
 
-  def findMultiPolygonsByEitherTag(t1: (String, String), t2: (String, String)): Stream[[x] =>> ConnectionIO[x], Record] =
-    findMultiPolygonsByFragment(
-      or(const(s"relations.tags->>'${t1._1}' = '${t1._2}'"),
-         const(s"relations.tags->>'${t2._1}' = '${t2._2}'"))
-    )
+  def findMultiPolygonsByTag[T](key: String, value: String)(fn: (Relation, MultiPolygon) => T): Stream[[x] =>> ConnectionIO[x], T] =
+    findMultiPolygonsByFragment(TagsFragments.is(key, value)) { fn }
 
-  def findMultiPolygonsByTags(t1: (String, String), t2: (String, String)): Stream[[x] =>> ConnectionIO[x], Record] =
-    findMultiPolygonsByFragment(
-      and(const(s"relations.tags->>'${t1._1}' = '${t1._2}'"),
-          const(s"relations.tags->>'${t2._1}' = '${t2._2}'"))
-    )
+  def findMultiPolygonsByEitherTag[T](t1: (String, String), t2: (String, String))(fn: (Relation, MultiPolygon) => T): Stream[[x] =>> ConnectionIO[x], T] =
+    findMultiPolygonsByFragment(TagsFragments.or(t1, t2)) { fn }
 
-  def findMultiPolygonsWithTag(key: String): Stream[[x] =>> ConnectionIO[x], Record] =
-    findMultiPolygonsByFragment(const(s"relations.tags->>'$key' IS NOT NULL"))
+  def findMultiPolygonsByTags[T](t1: (String, String), t2: (String, String))(fn: (Relation, MultiPolygon) => T): Stream[[x] =>> ConnectionIO[x], T] =
+    findMultiPolygonsByFragment(TagsFragments.and(t1, t2)) { fn }
 
-  private def findMultiPolygonsByFragment(fragment: Fragment): Stream[[x] =>> ConnectionIO[x], Record] =
+  def findMultiPolygonsWithTag[T](key: String)(fn: (Relation, MultiPolygon) => T): Stream[[x] =>> ConnectionIO[x], T] =
+    findMultiPolygonsByFragment(TagsFragments.has(key)) { fn }
+
+  def findMultiPolygonsByFragment[T](fragment: Fragment)(fn: (Relation, MultiPolygon) => T): Stream[[x] =>> ConnectionIO[x], T] =
     for
-      (relationId, name, tags) <- findMultiPolygonRelations(fragment).stream
-      multiPolygon             <- findMultiPolygonByRelationId(relationId)
-    yield Record(relationId, name, tags, multiPolygon)
+      relation     <- findMultiPolygonRelations(fragment).stream
+      multiPolygon <- findMultiPolygonByRelationId(relation.id)
+    yield fn(relation, multiPolygon)
 
-  private def findMultiPolygonByRelationId(relationId: Long) =
-    val outerRing  = findOuterRingByRelationId(relationId).stream
-    val innerRings = findInnerRingsByRelationId(relationId).stream
+  private def findMultiPolygonByRelationId(relationId: Long): Stream[[x] =>> ConnectionIO[x], MultiPolygon] =
+    // val outerPolygons = findWaysByRelationId(relationId, "outer")
+    //   .stream
+    //   .fold(List.empty[LineString]) { (acc, ls) =>
+    //     acc match {
+    //       case Nil => List(ls)
+    //       case head :: tail =>
+    //         head.merge(ls) match {
+    //           case Some(combined) => combined :: tail
+    //           case None => ls :: acc
+    //         }
+    //     }
+    //   }
+    //   .flatMap { Stream.emits }
+    //   .filter  { ls => ls.getFirstPoint == ls.getLastPoint }
+    //   .map     { ls => Polygon(Array(LinearRing(ls.getPoints))) }
+    //   .chunkAll
+    //   .map { _.toArray }
+    //   .filter
+
+    val outerRing  = findCombinedRingByRelationId(relationId, "outer").stream
+    val innerRings = findSeparateRingsByRelationId(relationId, "inner").stream
+
     (outerRing ++ innerRings).chunkAll.map { chunk => MultiPolygon(Array(Polygon(chunk.toArray))) }
 
   private def findMultiPolygonRelations(fragment: Fragment): Query0[Relation] =
@@ -55,7 +85,7 @@ object ComplexPolygonBuilder {
     sql.query[Relation]
 
   // Create polygon of all nodes in a given relation
-  private def findOuterRingByRelationId(relationId: Long) = sql"""
+  private def findCombinedRingByRelationId(relationId: Long, role: String) = sql"""
       SELECT CASE WHEN ST_IsClosed(geom)
                THEN   geom::geography
                ELSE   ST_AddPoint(geom, ST_StartPoint(geom))::geography
@@ -69,13 +99,13 @@ object ComplexPolygonBuilder {
           INNER JOIN  ways_nodes     ON ways_nodes.node_id      = nodes.osm_id
           INNER JOIN  relations_ways ON relations_ways.way_id   = ways_nodes.way_id
           WHERE       relation_id = $relationId
-          AND         role        = 'outer'
+          AND         role        = $role
           ORDER BY    relations_ways.index, ways_nodes.index
         )
       )
-  """.query[LineString].map(ls => LinearRing(ls.getPoints))
+  """.query[LineString].map { ls => LinearRing(ls.getPoints) }
 
-  private def findInnerRingsByRelationId(relationId: Long) = sql"""
+  private def findSeparateRingsByRelationId(relationId: Long, role: String) = sql"""
       SELECT CASE WHEN ST_IsClosed(geom)
                THEN   geom::geography
                ELSE   ST_AddPoint(geom, ST_StartPoint(geom))::geography
@@ -91,25 +121,34 @@ object ComplexPolygonBuilder {
           INNER JOIN  ways_nodes     ON ways_nodes.node_id      = nodes.osm_id
           INNER JOIN  relations_ways ON relations_ways.way_id   = ways_nodes.way_id
           WHERE       relation_id = $relationId
-          AND         role        = 'inner'
+          AND         role        = $role
           ORDER BY    relations_ways.index, ways_nodes.index
         )
         GROUP BY way_id, role
       )
       WHERE num_points > 3
-  """.query[LineString].map(ls => LinearRing(ls.getPoints))
+  """.query[LineString].map { ls => LinearRing(ls.getPoints) }
+
+  private def findWaysByRelationId(relationId: Long, role: String) = sql"""
+      SELECT          geom
+      FROM (
+        SELECT        way_id, role, ST_MakeLine(geom::geometry) AS geom
+        FROM (
+          SELECT      ways_nodes.way_id, role, geom
+          FROM        nodes
+          INNER JOIN  ways_nodes     ON ways_nodes.node_id      = nodes.osm_id
+          INNER JOIN  relations_ways ON relations_ways.way_id   = ways_nodes.way_id
+          WHERE       relation_id = $relationId
+          AND         role        = $role
+          ORDER BY    relations_ways.index, ways_nodes.index
+        )
+        GROUP BY      way_id, role
+      )
+  """.query[LineString]
 
   // =================================================================================
   // === Unused stuff  ===============================================================
   // =================================================================================
-
-  private def findInnerWaysByRelationId(relationId: Long) = sql"""
-      SELECT      way_id
-      FROM        relations_ways
-      WHERE       relation_id  = $relationId
-      AND         role = 'inner'
-      ORDER BY    index
-  """.query[Long]
 
   private def findPolygonByWayId(wayId: Long) = sql"""
       SELECT CASE WHEN ST_IsClosed(geom)

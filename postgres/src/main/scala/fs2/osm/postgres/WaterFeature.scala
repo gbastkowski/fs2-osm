@@ -9,8 +9,7 @@ import doobie.postgres.pgisgeographyimplicits.*
 import fs2.*
 
 object WaterFeature extends Feature {
-  override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
-    WaterFeature[F].apply(xa)
+  override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] = WaterFeature[F].apply(xa)
 
   override val tableDefinitions: List[Table] = List(
     Table("waters",
@@ -55,7 +54,7 @@ class WaterFeature[F[_]: Async] extends Queries {
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
     ComplexPolygonBuilder
-      .findMultiPolygonsByTag("natural", "water")
+      .findMultiPolygonsByTag[ComplexPolygonBuilder.Record]("natural", "water")(ComplexPolygonBuilder.toRecord)
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))

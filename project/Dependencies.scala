@@ -27,7 +27,8 @@ object Dependencies {
     "org.tpolecat"                     %% "doobie-hikari"                             % Versions.doobie,
     "org.tpolecat"                     %% "doobie-postgres"                           % Versions.doobie,
     "org.tpolecat"                     %% "doobie-postgres-circe"                     % Versions.doobie,
-    "net.postgis"                       % "postgis-jdbc"                              % Versions.postgisJdbc)
+    "net.postgis"                       % "postgis-jdbc"                              % Versions.postgisJdbc,
+    "net.postgis"                       % "postgis-jdbc-jts"                          % Versions.postgisJdbc)
 
   val embeddedPostgres = Seq(
     "com.opentable.components"          % "otj-pg-embedded"                           % Versions.embeddedPostgres)

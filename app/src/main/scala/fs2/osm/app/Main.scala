@@ -27,6 +27,7 @@ object Main extends IOApp {
     postgres.HighwayFeature,
     postgres.CoastlineFeature,
     postgres.AmenityFeature,
+    postgres.LanduseFeature,
     postgres.IndustrialFeature,
     postgres.LeisureFeature,
     postgres.WaterwayFeature,

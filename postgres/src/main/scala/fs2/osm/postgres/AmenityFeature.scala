@@ -56,7 +56,7 @@ class AmenityFeature[F[_]: Async] extends Queries {
 
   private def complexPolygons[F[_]: Async](xa: Transactor[F]) =
     ComplexPolygonBuilder
-      .findMultiPolygonsByTags("landuse" -> "industrial", "amenity" -> "recycling")
+      .findMultiPolygonsByTags[ComplexPolygonBuilder.Record]("landuse" -> "industrial", "amenity" -> "recycling")(ComplexPolygonBuilder.toRecord)
       .transact(xa)
       .map(insert)
       .evalMap(_.transact(xa))
@@ -68,4 +68,6 @@ class AmenityFeature[F[_]: Async] extends Queries {
         VALUES                (${r.osmId}, ${r.name}, ${r.tags}, ${r.geom})
       """
     )
+
+  // private val tagsFragment =
 }
