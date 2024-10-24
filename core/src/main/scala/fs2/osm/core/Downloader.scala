@@ -15,6 +15,12 @@ import sttp.model.Uri
 
 object Downloader extends Logging {
   def apply[F[_]: Async](uri: Uri): Stream[F, Byte] =
+    uri.scheme.getOrElse("file") match {
+      case "file" => Files[F].readAll(Path(Uri.AbsolutePath(uri.pathSegments.segments.toSeq).toString))
+      case _      => downloadHttp(uri)
+    }
+
+  private def downloadHttp[F[_]: Async](uri: Uri) =
     for
       backend  <- Stream.resource(HttpClientFs2Backend.resource())
       response <- Stream.eval(createRequest(uri).send(backend))

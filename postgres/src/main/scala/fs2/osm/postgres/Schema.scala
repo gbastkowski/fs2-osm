@@ -75,6 +75,7 @@ case class ForeignKeyConstraint(column: String, references: (String, String)) ex
 
 sealed trait ColumnConstraint
 case object PrimaryKey extends ColumnConstraint
+case object GeneratedAlwaysAsIdentity extends ColumnConstraint
 
 object NotNull {
   def apply(): NotNull = NotNull(Option.empty)
