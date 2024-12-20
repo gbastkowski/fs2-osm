@@ -37,26 +37,20 @@ object HighwayFeature extends OptionalFeature with Queries {
   private val dataGenerator: List[(String, ConnectionIO[Int])] = List(
     "highways" -> logAndRun(sql"""
       INSERT INTO highways (osm_id, name, kind, footway, sidewalk, cycleway, busway, bicycle_road, surface, geom, tags)
-      SELECT                osm_id, name, kind, footway, sidewalk, cycleway, busway, bicycle_road, surface, geom, tags
-      FROM (
-          SELECT
-              ways.osm_id AS osm_id,
-              ways.name   AS name,
-              ways.tags->>'highway' AS kind,
-              ways.tags->>'footway' AS footway,
-              ways.tags->>'sidewalk' AS sidewalk,
-              ways.tags->>'cycleway' AS cycleway,
-              ways.tags->>'busway' AS busway,
-              ways.tags->>'bicycle_road' IS NOT NULL AND ways.tags->>'bicycle_road' = 'yes' AS bicycle_road,
-              ways.tags->>'surface' AS surface,
-              ST_MakeLine(array_agg(nodes.geom)::geometry[]) AS geom,
-              ways.tags AS tags
-          FROM ways
-          CROSS JOIN LATERAL unnest(ways.nodes) AS node_id
-          INNER JOIN nodes ON nodes.osm_id = node_id
-          WHERE ways.tags->>'highway' IS NOT NULL
-          GROUP BY ways.osm_id
-      ) AS grouped_nodes
+      SELECT
+          osm_id AS osm_id,
+          name   AS name,
+          tags->>'highway' AS kind,
+          tags->>'footway' AS footway,
+          tags->>'sidewalk' AS sidewalk,
+          tags->>'cycleway' AS cycleway,
+          tags->>'busway' AS busway,
+          tags->>'bicycle_road' IS NOT NULL AND tags->>'bicycle_road' = 'yes' AS bicycle_road,
+          tags->>'surface' AS surface,
+          geom AS geom,
+          tags AS tags
+      FROM osm_lines
+      WHERE tags->>'highway' IS NOT NULL
     """)
   )
 }

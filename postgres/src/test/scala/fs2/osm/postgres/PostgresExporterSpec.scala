@@ -35,9 +35,19 @@ object PostgresExporterSpec extends IOSuite with Checkers:
 
   test("all tables available") { exporter =>
     for
-      _      <- exporter.initSchema
-      exists <- exporter.tableExists("importer_properties")
-    yield expect(exists)
+      _                    <- exporter.initSchema
+      importer_properties  <- exporter.tableExists("importer_properties")
+      nodes                <- exporter.tableExists("nodes")
+      osm_lines            <- exporter.tableExists("osm_lines")
+      polygons             <- exporter.tableExists("polygons")
+      ways                 <- exporter.tableExists("ways")
+    yield expect.all(
+      nodes,
+      importer_properties,
+      polygons,
+      osm_lines,
+      ways
+    )
   }
 
   test("insert entities") { exporter =>

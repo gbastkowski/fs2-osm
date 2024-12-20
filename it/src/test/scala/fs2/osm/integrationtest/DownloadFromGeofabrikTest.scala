@@ -20,7 +20,7 @@ object DownloadFromGeofabrikTest extends IOSuite {
   private val bremen  = uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf"
 
   private val features = List(
-    // HighwayFeature,
+    HighwayFeature,
     // WaterFeature,
     // BuildingFeature,
     // RailwayFeature,

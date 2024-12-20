@@ -6,6 +6,9 @@ import doobie.*
 import doobie.implicits.*
 import fs2.Stream
 
+/**
+ * Creates PSQL LineStrings from OSM ways
+ */
 object OsmLineFeature extends Feature with Queries {
   def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
     val dataGenerator = List("osm lines" -> logAndRun(getClass.getResource("/insert-into-osm-lines.sql")))
@@ -18,6 +21,5 @@ object OsmLineFeature extends Feature with Queries {
           Column("osm_id", BigInt, PrimaryKey),
           Column("name", VarChar),
           Column("tags", Jsonb),
-          Column("geom", Geography(LineString, Wgs84)))
-    )
+          Column("geom", Geography(LineString, Wgs84))))
 }
