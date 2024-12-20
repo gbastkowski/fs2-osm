@@ -8,7 +8,7 @@ import doobie.implicits.*
 import doobie.util.fragment.Fragment
 import fs2.Stream
 
-object WaterwayFeature extends Feature with Queries {
+object WaterwayFeature extends OptionalFeature with Queries {
   override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
     Stream
       .emits(dataGenerator.map { (key, operation) => operation.transact(xa).map { key -> _ } })

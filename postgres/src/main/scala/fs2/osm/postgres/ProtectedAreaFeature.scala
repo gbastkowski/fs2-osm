@@ -6,7 +6,7 @@ import doobie.*
 import doobie.implicits.*
 import fs2.Stream
 
-object ProtectedAreaFeature extends Feature with Queries {
+object ProtectedAreaFeature extends OptionalFeature with Queries {
   def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
     Stream
       .emits(dataGenerator.map { (key, operation) => operation.transact(xa).map { key -> _ } })

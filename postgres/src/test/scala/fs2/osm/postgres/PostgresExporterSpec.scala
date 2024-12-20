@@ -33,6 +33,13 @@ object PostgresExporterSpec extends IOSuite with Checkers:
       transactor  = Transactor.fromConnection(conn, logHandler = Option.empty)
     yield new PostgresExporter[IO](features = Nil, Telemetry.noop, transactor)
 
+  test("all tables available") { exporter =>
+    for
+      _      <- exporter.initSchema
+      exists <- exporter.tableExists("importer_properties")
+    yield expect(exists)
+  }
+
   test("insert entities") { exporter =>
     val entities = Stream(
       Node(
@@ -73,7 +80,7 @@ object PostgresExporterSpec extends IOSuite with Checkers:
     )
 
     for
-      either <- exporter.run(entities).attempt
+      either <- exporter.runExport(entities).attempt
       summary = either.toTry.get
     yield expect.all(
       summary.get("nodes")      == SummaryItem(2, 0, 0),

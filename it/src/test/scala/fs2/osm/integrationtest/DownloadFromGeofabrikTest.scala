@@ -20,8 +20,6 @@ object DownloadFromGeofabrikTest extends IOSuite {
   private val bremen  = uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf"
 
   private val features = List(
-    // ImporterPropertiesFeature,
-    // OsmLineFeature,
     // HighwayFeature,
     // WaterFeature,
     // BuildingFeature,
@@ -43,7 +41,7 @@ object DownloadFromGeofabrikTest extends IOSuite {
                     sun.misc.Signal.handle(new sun.misc.Signal("INT"),  _ => cb(Right(())))
                     sun.misc.Signal.handle(new sun.misc.Signal("TERM"), _ => cb(Right(())))
                   } *> cancel.complete(Right(()))).start
-      summary  <- exporter.run(stream.interruptWhen(cancel))
+      summary  <- exporter.runExport(stream.interruptWhen(cancel))
     yield expect.all(
       summary.get("nodes").inserted > 10000,
       summary.get("ways").inserted > 10000,

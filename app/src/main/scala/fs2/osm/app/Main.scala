@@ -21,7 +21,7 @@ object Main extends IOApp {
     yield (config, telemetry)
     resources.use { program }
 
-  private lazy val features: List[postgres.Feature] = List(
+  private lazy val features: List[postgres.OptionalFeature] = List(
     postgres.HighwayFeature,
     postgres.CoastlineFeature,
     postgres.AmenityFeature,
@@ -47,7 +47,7 @@ object Main extends IOApp {
                       sun.misc.Signal.handle(new sun.misc.Signal("TERM"), _ => cb(Right(())))
                     } *> cancel.complete(Right(()))).start
       exporter    = new PostgresExporter[IO](features, otel, xa)
-      summary    <- exporter.run(Downloader[IO](config.uri).interruptWhen(cancel).through(OsmEntityDecoder.pipe[IO]))
+      summary    <- exporter.runExport(Downloader[IO](config.uri).interruptWhen(cancel).through(OsmEntityDecoder.pipe[IO]))
       finished   <- IO(LocalTime.now())
       _          <- IO(println(PrettySummary(summary, Duration.between(started, finished))))
     yield ExitCode.Success

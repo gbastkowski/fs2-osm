@@ -8,7 +8,7 @@ import fs2.Stream
 import java.net.URL
 import scala.io.Source
 
-object BuildingFeature extends Feature with Queries {
+object BuildingFeature extends OptionalFeature with Queries {
   override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
     val dataGenerator = List("buildings" -> logAndRun(getClass.getResource("/insert-into-buildings.sql")))
     Stream

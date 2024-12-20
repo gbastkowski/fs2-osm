@@ -8,7 +8,7 @@ import doobie.implicits.*
 import doobie.postgres.pgisgeographyimplicits.*
 import fs2.*
 
-object AmenityFeature extends Feature {
+object AmenityFeature extends OptionalFeature {
   override def run[F[_]: Async](xa: Transactor[F]): Stream[F, (String, Int)] =
     AmenityFeature[F].apply(xa)
 
