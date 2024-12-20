@@ -56,29 +56,30 @@ trait ComplexPolygonBuilder {
     yield fn(relation, multiPolygon)
 
   private def findMultiPolygonByRelationId(relationId: Long): Stream[[x] =>> ConnectionIO[x], MultiPolygon] =
-    // val outerPolygons = findWaysByRelationId(relationId, "outer")
-    //   .stream
-    //   .fold(List.empty[LineString]) { (acc, ls) =>
-    //     acc match {
-    //       case Nil => List(ls)
-    //       case head :: tail =>
-    //         head.merge(ls) match {
-    //           case Some(combined) => combined :: tail
-    //           case None => ls :: acc
-    //         }
-    //     }
-    //   }
-    //   .flatMap { Stream.emits }
-    //   .filter  { ls => ls.getFirstPoint == ls.getLastPoint }
-    //   .map     { ls => Polygon(Array(LinearRing(ls.getPoints))) }
-    //   .chunkAll
-    //   .map { _.toArray }
-    //   .filter
+    val outerPolygons = findWaysByRelationId(relationId, "outer")
+      .stream
+      .fold(List.empty[LineString]) { (acc, current) =>
+        acc match {
+          case head :: tail  => head.merge(current).fold(current :: acc)(_ :: tail)
+          case Nil           => List(current)
+        }
+      }
+      .flatMap { Stream.emits }
+      .filter  { ls => ls.getFirstPoint == ls.getLastPoint }
+      .map     { ls => Polygon(Array(LinearRing(ls.getPoints))) }
+      .chunkAll
+      .map { _.toArray }
+
+    // org.locationtech.jts.geom.Polygon
+
+
 
     val outerRing  = findCombinedRingByRelationId(relationId, "outer").stream
     val innerRings = findSeparateRingsByRelationId(relationId, "inner").stream
 
     (outerRing ++ innerRings).chunkAll.map { chunk => MultiPolygon(Array(Polygon(chunk.toArray))) }
+
+
 
   private def findMultiPolygonRelations(fragment: Fragment): Query0[Relation] =
     val sql = fr"SELECT osm_id, name, tags FROM relations" ++ whereAnd(fr"relations.type = 'multipolygon'", fragment)

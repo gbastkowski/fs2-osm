@@ -1,24 +1,26 @@
 import sbt._
 
 object Versions {
-  val doobie              = "1.0.0-RC6"
-  val embeddedPostgres    = "1.1.0"
-  val fs2                 = "3.11.0"
-  val http4s              = "0.23.26"
-  val log4cats            = "2.6.0"
-  val log4j               = "2.24.1"
-  val log4jScala          = "13.1.0"
-  val odin                = "0.13.0"
-  val opentelemetry       = "1.43.0"
-  val opentelemetryAlpha  = "1.43.0-alpha"
-  val otel4s              = "0.10.0"
-  val postgisJdbc         = "2024.1.0"
-  val pureconfig          = "0.17.7"
-  val scalaLogging        = "3.9.4"
-  val scala               = "3.4.2"
-  val scopt               = "4.1.0"
-  val sttp                = "3.10.0"
-  val weaver              = "0.8.4"
+  val doobie                              = "1.0.0-RC6"
+  val embeddedPostgres                    = "1.1.0"
+  val fs2                                 = "3.11.0"
+  val http4s                              = "0.23.26"
+  val log4cats                            = "2.6.0"
+  val log4j                               = "2.24.3"
+  val log4jScala                          = "13.1.0"
+  val odin                                = "0.13.0"
+  val opentelemetry                       = "1.45.0"
+  val opentelemetryAlpha                  = "1.45.0-alpha"
+  val opentelemetryJavaagent              = "2.10.0"
+  val opentelemetryRuntimeTelemetryJava17 = "2.10.0-alpha"
+  val otel4s                              = "0.11.2"
+  val postgisJdbc                         = "2024.1.0"
+  val pureconfig                          = "0.17.8"
+  val scalaLogging                        = "3.9.4"
+  val scala                               = "3.4.2"
+  val scopt                               = "4.1.0"
+  val sttp                                = "3.10.1"
+  val weaver                              = "0.8.4"
 }
 
 object Dependencies {
@@ -56,9 +58,9 @@ object Dependencies {
     "io.opentelemetry"                  % "opentelemetry-exporter-logging"            % Versions.opentelemetry,
     "io.opentelemetry"                  % "opentelemetry-exporter-otlp"               % Versions.opentelemetry,
     "io.opentelemetry"                  % "opentelemetry-exporter-prometheus"         % Versions.opentelemetryAlpha,
-    "io.opentelemetry.javaagent"        % "opentelemetry-javaagent"                   % "2.8.0",
+    "io.opentelemetry.javaagent"        % "opentelemetry-javaagent"                   % Versions.opentelemetryJavaagent,
     "io.opentelemetry"                  % "opentelemetry-sdk-extension-autoconfigure" % Versions.opentelemetry,
-    "io.opentelemetry.instrumentation"  % "opentelemetry-runtime-telemetry-java17"    % "2.8.0-alpha",
+    "io.opentelemetry.instrumentation"  % "opentelemetry-runtime-telemetry-java17"    % Versions.opentelemetryRuntimeTelemetryJava17,
     "org.typelevel"                    %% "otel4s-oteljava"                           % Versions.otel4s)
 
   val pureconfig = Seq(

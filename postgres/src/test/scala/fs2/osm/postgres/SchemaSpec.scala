@@ -39,6 +39,7 @@ object SchemaSpec extends SimpleIOSuite with Checkers {
 
       val expectedConstraint = column.constraint match {
         case Some(PrimaryKey)               => "PRIMARY KEY"
+        case Some(GeneratedPrimaryKey)      => "PRIMARY KEY"
         case Some(NotNull(Some(default)))   => s"NOT NULL DEFAULT $default"
         case Some(NotNull(None))            => "NOT NULL"
         case None                           => ""

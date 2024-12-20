@@ -40,6 +40,10 @@ case class SummaryItem(inserted: Int = 0, updated: Int = 0, deleted: Int = 0) {
   def delete(n: Int): SummaryItem = copy(deleted   = deleted  + n)
 }
 
+object Summary {
+  val empty: Summary = Summary()
+}
+
 given Monoid[Summary] with
   def combine(x: Summary, y: Summary): Summary = x + y
-  def empty:                           Summary = Summary()
+  def empty:                           Summary = Summary.empty

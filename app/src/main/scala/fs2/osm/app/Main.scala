@@ -22,8 +22,6 @@ object Main extends IOApp {
     resources.use { program }
 
   private lazy val features: List[postgres.Feature] = List(
-    postgres.ImporterPropertiesFeature,
-    postgres.OsmLineFeature,
     postgres.HighwayFeature,
     postgres.CoastlineFeature,
     postgres.AmenityFeature,

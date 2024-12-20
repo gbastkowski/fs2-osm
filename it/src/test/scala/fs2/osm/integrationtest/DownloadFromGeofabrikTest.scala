@@ -20,7 +20,7 @@ object DownloadFromGeofabrikTest extends IOSuite {
   private val bremen  = uri"http://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf"
 
   private val features = List(
-    ImporterPropertiesFeature,
+    // ImporterPropertiesFeature,
     // OsmLineFeature,
     // HighwayFeature,
     // WaterFeature,
@@ -31,23 +31,8 @@ object DownloadFromGeofabrikTest extends IOSuite {
 
   override type Res = PostgresExporter[IO]
   override def sharedResource: Resource[IO, Res] =
-    for
-      xa         <- if   sys.env.get("CI").isEmpty
-                    then Resource.pure(postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)
-                    else
-                      val connection = IO {
-                        EmbeddedPostgres
-                          .builder()
-                          .setImage(DockerImageName.parse("postgis/postgis"))
-                          .start()
-                          .getPostgresDatabase()
-                          .getConnection()
-                      }
-                      Resource
-                        .make { connection } { c => IO(c.close())}
-                        .map  { conn => Transactor.fromConnection(conn, logHandler = Option.empty) }
-    yield
-      new PostgresExporter[IO](features, Telemetry.noop, xa)
+    for xa <- if (isCi) embeddedPostgres else installedPostgres
+    yield new PostgresExporter[IO](features, Telemetry.noop, xa)
 
   test("download Bremen data from web and export to Postgres") { exporter =>
     val bytes   = Downloader[IO](bremen)
@@ -93,4 +78,23 @@ object DownloadFromGeofabrikTest extends IOSuite {
       // bridge.coordinate == Coordinate(8.7882187, 53.0770151)
     )
   }
+
+  private lazy val isCi = sys.env.get("CI").nonEmpty
+
+  private lazy val installedPostgres: Resource[IO, Transactor[IO]] =
+    Resource.pure(postgres.Config("jdbc:postgresql:fs2-osm", sys.props("user.name"), "").transactor)
+
+  private lazy val embeddedPostgres: Resource[IO, Transactor[IO]] =
+    Resource
+      .make {
+        IO {
+          EmbeddedPostgres
+            .builder()
+            .setImage(DockerImageName.parse("postgis/postgis"))
+            .start()
+            .getPostgresDatabase()
+            .getConnection()
+        }
+      } { c => IO(c.close()) }
+      .map  { conn => Transactor.fromConnection(conn, logHandler = Option.empty) }
 }

@@ -16,9 +16,10 @@ import fs2.{Chunk, Pipe}
 import io.circe.Json
 import io.circe.syntax.*
 import net.postgis.jdbc.geometry.Point
+import org.apache.logging.log4j.scala.Logging
 import org.typelevel.otel4s.metrics.Counter
 
-object WayImporter:
+object WayImporter extends Logging:
   type Record = (Long, Option[String], Array[Long], Json)
 
   def apply[F[_]: Async](counter: Long => F[Unit], xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
@@ -26,6 +27,7 @@ object WayImporter:
     .chunkN(10000, allowFewer = true)
     .map { handleWays }
     .evalMap { _.transact(xa) }
+    .debug(s => s"Saved $s ways", logger.info)
     .evalTap { counter(_) }
     .map { "ways" -> _ }
 

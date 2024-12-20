@@ -31,8 +31,10 @@ import pureconfig.*
 import pureconfig.generic.derivation.default.*
 import pureconfig.module.catseffect.syntax.*
 
-class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Logging {
+class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetry[F], xa: Transactor[F]) extends Queries {
   import Schema.*
+
+  private val allFeatures = ImporterPropertiesFeature :: OsmLineFeature :: PolygonFeature :: features
 
   def run(entities: Stream[F, OsmEntity]): F[Summary] =
     for
@@ -44,15 +46,15 @@ class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetr
       nodeImporter      = NodeImporter(n => nodeCounter.add(n, telemetry.attributes), xa)
       wayImporter       = WayImporter(n => wayCounter.add(n, telemetry.attributes), xa)
       relationImporter  = RelationImporter(n => relationCounter.add(n, telemetry.attributes), xa)
-      summary1         <- entities
+      importedSummary  <- entities
                             .broadcastThrough(nodeImporter, wayImporter, relationImporter)
                             .map { Summary().insert(_, _) }
                             .foldMonoid
                             .compile.toList.map { _.combineAll }
-      summary2         <- runFeatures
-    yield summary1 + summary2
+      featureSummary   <- runFeatures
+    yield importedSummary + featureSummary
 
-  private def runFeatures: F[Summary] = features traverse { runFeature } map { _.combineAll }
+  private def runFeatures: F[Summary] = allFeatures traverse { runFeature } map { _.combineAll }
 
   private def runFeature(feature: Feature): F[Summary] =
     feature
@@ -62,18 +64,15 @@ class PostgresExporter[F[_]: Async](features: List[Feature], telemetry: Telemetr
       .foldMonoid.compile.toList.map(_.head)
 
   private lazy val createSchema =
-    val allTables    = DefaultSchema.tables.toList ::: features.flatMap { _.tableDefinitions }
+    val allTables    = DefaultSchema.tables.toList ::: allFeatures.flatMap { _.tableDefinitions }
     val initSchema   = sql"""CREATE EXTENSION IF NOT EXISTS postgis"""
     val dropTables   = allTables.map { t => Fragment.const(t.drop) }
     val createTables = allTables.map { t => Fragment.const(t.create) }
 
     (initSchema :: dropTables ::: createTables)
-      .map { updateRun }
+      .map { logAndRun }
       .sequence
       .as(())
       .transact(xa)
-
-  private def updateRun(sql: Fragment) =
-    logger.debug(sql.update.sql)
-    sql.update.run
+      .flatTap { _ => Async[F].delay(logger.info("Schema created")) }
 }

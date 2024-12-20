@@ -1,14 +1,15 @@
 package fs2.osm.postgres
 
 import cats.*
+import cats.data.Kleisli
 import cats.effect.*
 import cats.syntax.all.*
-import fs2.{Pipe, Pull, Stream}
-import weaver.*
 import fs2.Pure
-import cats.data.Kleisli
+import fs2.{Pipe, Pull, Stream}
+import org.apache.logging.log4j.scala.Logging
+import weaver.*
 
-object StreamOperationsSpec extends SimpleIOSuite {
+object StreamOperationsSpec extends SimpleIOSuite with Logging {
   case class Sum(birds: Int = 0, cats: Int = 0, dogs: Int = 0)
 
   sealed trait Pet
@@ -22,7 +23,7 @@ object StreamOperationsSpec extends SimpleIOSuite {
         Bird("bird a"), Bird("bird b"), Bird("bird c"),
         Cat("cat a"), Cat("cat b"), Cat("cat c"),
         Dog("dog a"), Dog("dog b"), Dog("dog c")))
-    .debug(_.toString, println)
+    .debug(_.toString, logger.debug)
 
   val birdPipe: Pipe[IO, Pet, Sum] = b => b
     .collect { case b: Bird => b }

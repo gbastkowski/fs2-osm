@@ -37,9 +37,10 @@ object Schema {
           case Jsonb                 => "JSONB"
         },
         c.constraint.map {
-          case NotNull(Some(default)) => s"NOT NULL DEFAULT $default"
-          case NotNull(_) => "NOT NULL"
-          case PrimaryKey => "PRIMARY KEY"
+          case NotNull(Some(default))  => s"NOT NULL DEFAULT $default"
+          case NotNull(_)              => "NOT NULL"
+          case PrimaryKey              => "PRIMARY KEY"
+          case GeneratedPrimaryKey     => "GENERATED ALWAYS AS IDENTITY PRIMARY KEY"
         }.getOrElse("")
       )
         .filter { _.nonEmpty }
@@ -74,8 +75,8 @@ case class UniqueConstraint(columns: String*) extends TableConstraint
 case class ForeignKeyConstraint(column: String, references: (String, String)) extends TableConstraint
 
 sealed trait ColumnConstraint
-case object PrimaryKey extends ColumnConstraint
-case object GeneratedAlwaysAsIdentity extends ColumnConstraint
+case object PrimaryKey          extends ColumnConstraint
+case object GeneratedPrimaryKey extends ColumnConstraint
 
 object NotNull {
   def apply(): NotNull = NotNull(Option.empty)

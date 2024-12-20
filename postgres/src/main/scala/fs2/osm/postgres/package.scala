@@ -12,6 +12,7 @@ package object postgres {
 
   extension (tags: Map[String, String]) def toJson: Json = Json.obj(tags.mapValues { _.asJson }.toSeq*)
 
+  // TODO get rid of
   extension (a: LineString) def merge(b: LineString): Option[LineString] =
     if      (a.getLastPoint  == b.getFirstPoint) a.concat(b).some
     else if (a.getFirstPoint == b.getLastPoint)  b.concat(a).some

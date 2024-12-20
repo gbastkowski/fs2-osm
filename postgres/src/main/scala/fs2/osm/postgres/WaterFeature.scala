@@ -25,7 +25,7 @@ object WaterFeature extends Feature {
 }
 
 class WaterFeature[F[_]: Async] extends Queries {
-  def apply(xa: Transactor[F]) =
+  def apply(xa: Transactor[F]): Stream[F, (String, scala.Int)] =
     Stream
       .eval(simplePolygons(xa))
       .append(complexPolygons(xa))

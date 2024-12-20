@@ -16,15 +16,17 @@ import fs2.{Chunk, Pipe}
 import io.circe.Json
 import io.circe.syntax.*
 import net.postgis.jdbc.geometry.*
+import org.apache.logging.log4j.scala.Logging
 import org.typelevel.otel4s.metrics.Counter
 import org.typelevel.otel4s.Attribute
 
-object NodeImporter {
+object NodeImporter extends Logging {
   def apply[F[_]: Async](counter: Long => F[Unit], xa: Transactor[F]): Pipe[F, OsmEntity, (String, Int)] = _
     .collect { case n: Node => n }
-    .chunkN(10000, allowFewer = true)
+    .chunkN(100000, allowFewer = true)
     .map { handleNodes }
     .parEvalMap(20) { _.transact(xa) }
+    .debug(s => s"Saved $s nodes", logger.info)
     .evalTap { counter(_) }
     .foldMonoid
     .map { "nodes" -> _ }
